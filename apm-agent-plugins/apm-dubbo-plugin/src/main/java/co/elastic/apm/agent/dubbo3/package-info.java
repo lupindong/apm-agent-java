@@ -17,6 +17,6 @@
  * under the License.
  */
 @NonnullApi
-package co.elastic.apm.agent.dubbo;
+package co.elastic.apm.agent.dubbo3;
 
 import co.elastic.apm.agent.sdk.NonnullApi;

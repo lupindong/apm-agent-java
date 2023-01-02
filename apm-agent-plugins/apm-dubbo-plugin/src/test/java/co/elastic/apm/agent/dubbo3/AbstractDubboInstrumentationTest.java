@@ -16,12 +16,12 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package co.elastic.apm.agent.dubbo;
+package co.elastic.apm.agent.dubbo3;
 
 import co.elastic.apm.agent.AbstractInstrumentationTest;
 import co.elastic.apm.agent.configuration.CoreConfiguration;
-import co.elastic.apm.agent.dubbo.api.DubboTestApi;
-import co.elastic.apm.agent.dubbo.api.exception.BizException;
+import co.elastic.apm.agent.dubbo3.api.DubboTestApi;
+import co.elastic.apm.agent.dubbo3.api.exception.BizException;
 import co.elastic.apm.agent.impl.context.Destination;
 import co.elastic.apm.agent.impl.error.ErrorCapture;
 import co.elastic.apm.agent.impl.transaction.AbstractSpan;

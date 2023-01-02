@@ -16,13 +16,18 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package co.elastic.apm.agent.dubbo;
+package co.elastic.apm.agent.dubbo3;
 
-import co.elastic.apm.agent.collections.WeakConcurrentProviderImpl;
-import co.elastic.apm.agent.impl.transaction.AbstractSpan;
-import co.elastic.apm.agent.sdk.weakconcurrent.WeakMap;
-import com.alibaba.dubbo.remoting.exchange.ResponseCallback;
+import co.elastic.apm.agent.bci.TracerAwareInstrumentation;
 
-public class AlibabaCallbackHolder {
-    public static final WeakMap<ResponseCallback, AbstractSpan<?>> callbackSpanMap = WeakConcurrentProviderImpl.createWeakSpanMap();
+import java.util.Collection;
+import java.util.Collections;
+
+public abstract class AbstractDubboInstrumentation extends TracerAwareInstrumentation {
+
+    @Override
+    public Collection<String> getInstrumentationGroupNames() {
+        return Collections.singleton("star-dubbo");
+    }
+
 }

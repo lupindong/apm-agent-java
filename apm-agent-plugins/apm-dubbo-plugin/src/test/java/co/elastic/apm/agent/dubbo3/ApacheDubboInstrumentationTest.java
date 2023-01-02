@@ -16,37 +16,37 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package co.elastic.apm.agent.dubbo;
+package co.elastic.apm.agent.dubbo3;
 
-import co.elastic.apm.agent.dubbo.api.AnotherApi;
-import co.elastic.apm.agent.dubbo.api.DubboTestApi;
-import co.elastic.apm.agent.dubbo.api.exception.BizException;
-import co.elastic.apm.agent.dubbo.api.impl.AnotherApiImpl;
-import co.elastic.apm.agent.dubbo.api.impl.DubboTestApiImpl;
+import co.elastic.apm.agent.dubbo3.api.AnotherApi;
+import co.elastic.apm.agent.dubbo3.api.DubboTestApi;
+import co.elastic.apm.agent.dubbo3.api.exception.BizException;
+import co.elastic.apm.agent.dubbo3.api.impl.AnotherApiImpl;
+import co.elastic.apm.agent.dubbo3.api.impl.DubboTestApiImpl;
 import co.elastic.apm.agent.impl.error.ErrorCapture;
 import co.elastic.apm.agent.impl.transaction.Span;
 import co.elastic.apm.agent.impl.transaction.Transaction;
-import com.alibaba.dubbo.config.ApplicationConfig;
-import com.alibaba.dubbo.config.MethodConfig;
-import com.alibaba.dubbo.config.ProtocolConfig;
-import com.alibaba.dubbo.config.ReferenceConfig;
-import com.alibaba.dubbo.config.RegistryConfig;
-import com.alibaba.dubbo.config.ServiceConfig;
-import com.alibaba.dubbo.rpc.RpcContext;
+import org.apache.dubbo.config.ApplicationConfig;
+import org.apache.dubbo.config.MethodConfig;
+import org.apache.dubbo.config.ProtocolConfig;
+import org.apache.dubbo.config.ReferenceConfig;
+import org.apache.dubbo.config.RegistryConfig;
+import org.apache.dubbo.config.ServiceConfig;
+import org.apache.dubbo.rpc.RpcContext;
 import org.junit.jupiter.api.Test;
 
 import java.util.LinkedList;
 import java.util.List;
-import java.util.concurrent.Callable;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.fail;
 
-public class AlibabaDubboInstrumentationTest extends AbstractDubboInstrumentationTest {
+public class ApacheDubboInstrumentationTest extends AbstractDubboInstrumentationTest {
 
     @Override
     protected DubboTestApi buildDubboTestApi(int port1, int port2) {
+
         RegistryConfig registryConfig = createRegistryConfig();
         ApplicationConfig appConfig = createApplicationConfig();
 
@@ -54,7 +54,7 @@ public class AlibabaDubboInstrumentationTest extends AbstractDubboInstrumentatio
         ProtocolConfig anotherApiProtocolConfig = createProtocolConfig(port2);
         createAndExportServiceConfig(registryConfig, AnotherApi.class, new AnotherApiImpl(), appConfig, anotherApiProtocolConfig);
 
-        //build AnotherApi consumer
+        // build AnotherApi consumer
         ReferenceConfig<AnotherApi> anotherApiReferenceConfig = createReferenceConfig(AnotherApi.class, appConfig, port2);
 
         AnotherApi anotherApi = withRetry(anotherApiReferenceConfig::get);
@@ -68,6 +68,7 @@ public class AlibabaDubboInstrumentationTest extends AbstractDubboInstrumentatio
 
         List<MethodConfig> methodConfigList = new LinkedList<>();
         dubboTestApi.setMethods(methodConfigList);
+
         MethodConfig asyncConfig = new MethodConfig();
         asyncConfig.setName("async");
         asyncConfig.setAsync(true);
@@ -94,7 +95,7 @@ public class AlibabaDubboInstrumentationTest extends AbstractDubboInstrumentatio
         return appConfig;
     }
 
-    private static ProtocolConfig createProtocolConfig(int port){
+    private static ProtocolConfig createProtocolConfig(int port) {
         ProtocolConfig protocolConfig = new ProtocolConfig();
         protocolConfig.setName("dubbo");
         protocolConfig.setPort(port);
@@ -115,11 +116,10 @@ public class AlibabaDubboInstrumentationTest extends AbstractDubboInstrumentatio
         serviceConfig.setRef(interfaceImpl);
         serviceConfig.setRegistry(registryConfig);
 
-        withRetry((Callable<Void>) () -> {
+        withRetry(() -> {
             serviceConfig.export();
             return null;
         });
-
 
     }
 
@@ -131,6 +131,7 @@ public class AlibabaDubboInstrumentationTest extends AbstractDubboInstrumentatio
         referenceConfig.setTimeout(3000);
         return referenceConfig;
     }
+
 
     @Test
     public void testAsync() throws Exception {
@@ -160,12 +161,10 @@ public class AlibabaDubboInstrumentationTest extends AbstractDubboInstrumentatio
             Future<Object> future = RpcContext.getContext().getFuture();
             assertThat(future).isNotNull();
             future.get();
-            fail("expected to get exception from async dubbo call");
         } catch (Exception e) {
             // exception from Future will be wrapped as RpcException by dubbo implementation
-            assertThat(e.getCause()).isInstanceOf(BizException.class);
+            assertThat(e.getCause() instanceof BizException).isTrue();
             Transaction transaction = reporter.getFirstTransaction(1000);
-            assertThat(transaction).isNotNull();
             assertThat(reporter.getFirstSpan(500)).isNotNull();
             List<Span> spans = reporter.getSpans();
             assertThat(spans.size()).isEqualTo(1);
@@ -173,8 +172,89 @@ public class AlibabaDubboInstrumentationTest extends AbstractDubboInstrumentatio
             List<ErrorCapture> errors = reporter.getErrors();
             assertThat(errors.size()).isEqualTo(2);
             for (ErrorCapture error : errors) {
-                assertThat(error.getException()).isInstanceOf(BizException.class);
+                Throwable t = error.getException();
+                assertThat(t instanceof BizException).isTrue();
             }
+            return;
         }
+        throw new RuntimeException("not ok");
+    }
+
+    @Test
+    public void testAsyncByFuture() throws Exception {
+        DubboTestApi dubboTestApi = getDubboTestApi();
+        String arg = "hello";
+        CompletableFuture<String> future = dubboTestApi.asyncByFuture(arg);
+        assertThat(future).isNotNull();
+        assertThat(future.get()).isEqualTo(arg);
+
+        Transaction transaction = reporter.getFirstTransaction(1000);
+        validateDubboTransaction(transaction, DubboTestApi.class, "asyncByFuture");
+
+        assertThat(reporter.getFirstSpan(500)).isNotNull();
+        reporter.awaitSpanCount(2);
+    }
+
+    @Test
+    public void testAsyncByFutureException() throws Exception {
+        DubboTestApi dubboTestApi = getDubboTestApi();
+        String arg = "error";
+        CompletableFuture<String> future = dubboTestApi.asyncByFuture(arg);
+        try {
+            future.get();
+        } catch (Exception e) {
+            Transaction transaction = reporter.getFirstTransaction(1000);
+            validateDubboTransaction(transaction, DubboTestApi.class, "asyncByFuture");
+
+            assertThat(reporter.getFirstSpan(500)).isNotNull();
+            reporter.awaitSpanCount(2);
+
+            List<ErrorCapture> errors = reporter.getErrors();
+            assertThat(errors).hasSize(2);
+            for (ErrorCapture error : errors) {
+                assertThat(error.getException() instanceof BizException).isTrue();
+            }
+            return;
+        }
+        throw new RuntimeException("not ok");
+    }
+
+
+    @Test
+    public void testAsyncByAsyncContext() throws Exception {
+        DubboTestApi dubboTestApi = getDubboTestApi();
+        String arg = "hello";
+        String ret = dubboTestApi.asyncByAsyncContext(arg);
+        assertThat(ret).isEqualTo(arg);
+
+        Transaction transaction = reporter.getFirstTransaction(1000);
+        validateDubboTransaction(transaction, DubboTestApi.class, "asyncByAsyncContext");
+
+        assertThat(reporter.getFirstSpan(500)).isNotNull();
+        List<Span> spans = reporter.getSpans();
+        assertThat(spans.size()).isEqualTo(2);
+    }
+
+    @Test
+    public void testAsyncByAsyncContextException() throws Exception {
+        DubboTestApi dubboTestApi = getDubboTestApi();
+        try {
+            dubboTestApi.asyncByAsyncContext("error");
+        } catch (BizException e) {
+            Transaction transaction = reporter.getFirstTransaction(1000);
+            validateDubboTransaction(transaction, DubboTestApi.class, "asyncByAsyncContext");
+
+            assertThat(reporter.getFirstSpan(5000)).isNotNull();
+            List<Span> spans = reporter.getSpans();
+            assertThat(spans.size()).isEqualTo(2);
+
+            List<ErrorCapture> errors = reporter.getErrors();
+            assertThat(errors).hasSize(2);
+            for (ErrorCapture error : errors) {
+                assertThat(error.getException() instanceof BizException).isTrue();
+            }
+            return;
+        }
+        throw new RuntimeException("not ok");
     }
 }

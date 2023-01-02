@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package co.elastic.apm.agent.dubbo.helper;
+package co.elastic.apm.agent.dubbo3.helper;
 
 import co.elastic.apm.agent.impl.ElasticApmTracer;
 import co.elastic.apm.agent.impl.context.Destination;
@@ -48,13 +48,21 @@ public class DubboTraceHelper {
             .withSubtype(DUBBO_SUBTYPE);
         span.updateName(apiClass, methodName);
 
-        Destination destination = span.getContext().getDestination();
-        destination.withInetSocketAddress(remoteAddress);
+        if (remoteAddress != null) {
+            Destination destination = span.getContext().getDestination();
+            destination.withInetSocketAddress(remoteAddress);
 
-        span.getContext().getServiceTarget()
-            .withType(DUBBO_SUBTYPE)
-            .withHostPortName(remoteAddress.getHostName(), remoteAddress.getPort())
-            .withNameOnlyDestinationResource();
+            span.getContext().getServiceTarget()
+                .withType(DUBBO_SUBTYPE)
+                .withHostPortName(remoteAddress.getHostName(), remoteAddress.getPort())
+                .withNameOnlyDestinationResource();
+
+        } else {
+            span.getContext().getServiceTarget()
+                .withType(DUBBO_SUBTYPE)
+                .withNameOnlyDestinationResource();
+
+        }
 
         return span.activate();
     }

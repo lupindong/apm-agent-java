@@ -16,19 +16,14 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package co.elastic.apm.agent.dubbo;
+package co.elastic.apm.agent.dubbo3.api.impl;
 
-import co.elastic.apm.agent.bci.TracerAwareInstrumentation;
+import co.elastic.apm.agent.dubbo3.api.AnotherApi;
 
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-
-public abstract class AbstractDubboInstrumentation extends TracerAwareInstrumentation {
+public class AnotherApiImpl implements AnotherApi {
 
     @Override
-    public Collection<String> getInstrumentationGroupNames() {
-        return Collections.singleton("dubbo");
+    public String echo(String arg) {
+        return arg;
     }
-
 }

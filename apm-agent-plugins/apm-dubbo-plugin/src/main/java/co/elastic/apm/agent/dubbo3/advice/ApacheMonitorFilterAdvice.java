@@ -16,44 +16,46 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package co.elastic.apm.agent.dubbo.advice;
+package co.elastic.apm.agent.dubbo3.advice;
 
-import co.elastic.apm.agent.dubbo.helper.AlibabaDubboTextMapPropagator;
-import co.elastic.apm.agent.dubbo.helper.DubboTraceHelper;
+import co.elastic.apm.agent.dubbo3.helper.ApacheDubboTextMapPropagator;
+import co.elastic.apm.agent.dubbo3.helper.DubboTraceHelper;
 import co.elastic.apm.agent.impl.ElasticApmTracer;
 import co.elastic.apm.agent.impl.GlobalTracer;
 import co.elastic.apm.agent.impl.transaction.AbstractSpan;
 import co.elastic.apm.agent.impl.transaction.Outcome;
 import co.elastic.apm.agent.impl.transaction.Span;
 import co.elastic.apm.agent.impl.transaction.Transaction;
-import com.alibaba.dubbo.rpc.Invocation;
-import com.alibaba.dubbo.rpc.Result;
-import com.alibaba.dubbo.rpc.RpcContext;
-import com.alibaba.dubbo.rpc.protocol.dubbo.FutureAdapter;
 import net.bytebuddy.asm.Advice;
+import org.apache.dubbo.rpc.AsyncRpcResult;
+import org.apache.dubbo.rpc.Invocation;
+import org.apache.dubbo.rpc.Result;
+import org.apache.dubbo.rpc.RpcContext;
 
 import javax.annotation.Nullable;
+import java.util.function.BiConsumer;
 
-public class AlibabaMonitorFilterAdvice {
+public class ApacheMonitorFilterAdvice {
 
     private static final ElasticApmTracer tracer = GlobalTracer.requireTracerImpl();
 
     @Nullable
     @Advice.OnMethodEnter(suppress = Throwable.class, inline = false)
     public static Object onEnterFilterInvoke(@Advice.Argument(1) Invocation invocation) {
+
         RpcContext context = RpcContext.getContext();
-        // for consumer side, just create span, more information will be collected in provider side
         AbstractSpan<?> active = tracer.getActive();
+        // for consumer side, just create span, more information will be collected in provider side
         if (context.isConsumerSide() && active != null) {
             Span span = DubboTraceHelper.createConsumerSpan(tracer, invocation.getInvoker().getInterface(),
                 invocation.getMethodName(), context.getRemoteAddress());
             if (span != null) {
-                span.propagateTraceContext(context, AlibabaDubboTextMapPropagator.INSTANCE);
+                span.propagateTraceContext(context, ApacheDubboTextMapPropagator.INSTANCE);
                 return span;
             }
         } else if (context.isProviderSide() && active == null) {
             // for provider side
-            Transaction transaction = tracer.startChildTransaction(context, AlibabaDubboTextMapPropagator.INSTANCE, Invocation.class.getClassLoader());
+            Transaction transaction = tracer.startChildTransaction(context, ApacheDubboTextMapPropagator.INSTANCE, Invocation.class.getClassLoader());
             if (transaction != null) {
                 transaction.activate();
                 DubboTraceHelper.fillTransaction(transaction, invocation.getInvoker().getInterface(), invocation.getMethodName());
@@ -66,26 +68,47 @@ public class AlibabaMonitorFilterAdvice {
     @Advice.OnMethodExit(suppress = Throwable.class, onThrowable = Throwable.class, inline = false)
     public static void onExitFilterInvoke(@Advice.Argument(1) Invocation invocation,
                                           @Advice.Return @Nullable Result result,
-                                          @Advice.Enter @Nullable Object spanObj,
+                                          @Advice.Enter @Nullable final Object spanObj,
                                           @Advice.Thrown @Nullable Throwable t) {
+
         AbstractSpan<?> span = (AbstractSpan<?>) spanObj;
+        RpcContext context = RpcContext.getContext();
         if (span == null) {
             return;
         }
 
-        Throwable resultException = null;
-        if (result != null) { // will be null in case of thrown exception
-            resultException = result.getException();
-        }
-        span
-            .captureException(t)
-            .captureException(resultException)
-            .withOutcome(t != null || resultException != null ? Outcome.FAILURE : Outcome.SUCCESS)
-            .deactivate();
-
-        if (!(RpcContext.getContext().getFuture() instanceof FutureAdapter)) {
+        span.deactivate();
+        if (result instanceof AsyncRpcResult) {
+            context.set(DubboTraceHelper.SPAN_KEY, span);
+            result.whenCompleteWithContext(AsyncCallback.INSTANCE);
+        } else {
             span.end();
         }
-        // else: end when ResponseCallback is called (see AlibabaResponseCallbackInstrumentation)
+    }
+
+    public static class AsyncCallback implements BiConsumer<Result, Throwable> {
+
+        private final static BiConsumer<Result, Throwable> INSTANCE = new AsyncCallback();
+
+        @Override
+        public void accept(@Nullable Result result, @Nullable Throwable t) {
+            AbstractSpan<?> span = (AbstractSpan<?>) RpcContext.getContext().get(DubboTraceHelper.SPAN_KEY);
+            if (span != null) {
+                try {
+                    RpcContext.getContext().remove(DubboTraceHelper.SPAN_KEY);
+
+                    Throwable resultException = null;
+                    if (result != null) {
+                        resultException = result.getException();
+                    }
+
+                    span.captureException(t)
+                        .captureException(resultException)
+                        .withOutcome(t != null || resultException != null ? Outcome.FAILURE : Outcome.SUCCESS);
+                } finally {
+                    span.end();
+                }
+            }
+        }
     }
 }

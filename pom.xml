@@ -322,7 +322,7 @@
                 </configuration>
             </plugin>
             <!-- The shadowed source files of this module need to be included explicitly to create a javadoc artifact.-->
-            <plugin>
+            <!--<plugin>
                 <artifactId>maven-javadoc-plugin</artifactId>
                 <configuration>
                     <additionalOptions>-html5</additionalOptions>
@@ -337,7 +337,7 @@
                     </execution>
                 </executions>
 
-            </plugin>
+            </plugin>-->
             <!-- Check that we don't accidentally use features only available in Java 8+ -->
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>

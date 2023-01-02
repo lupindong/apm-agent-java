@@ -16,7 +16,10 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-@NonnullApi
-package co.elastic.apm.agent.dubbo.helper;
+package co.elastic.apm.agent.dubbo3.api.exception;
 
-import co.elastic.apm.agent.sdk.NonnullApi;
+public class BizException extends RuntimeException {
+    public BizException(String message) {
+        super(message);
+    }
+}

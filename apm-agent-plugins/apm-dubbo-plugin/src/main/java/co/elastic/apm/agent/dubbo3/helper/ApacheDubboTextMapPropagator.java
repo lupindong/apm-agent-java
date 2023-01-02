@@ -16,15 +16,15 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package co.elastic.apm.agent.dubbo.helper;
+package co.elastic.apm.agent.dubbo3.helper;
 
 import co.elastic.apm.agent.impl.transaction.TextHeaderGetter;
 import co.elastic.apm.agent.impl.transaction.TextHeaderSetter;
-import com.alibaba.dubbo.rpc.RpcContext;
+import org.apache.dubbo.rpc.RpcContext;
 
 import javax.annotation.Nullable;
 
-public enum AlibabaDubboTextMapPropagator implements TextHeaderGetter<RpcContext>, TextHeaderSetter<RpcContext> {
+public enum ApacheDubboTextMapPropagator implements TextHeaderGetter<RpcContext>, TextHeaderSetter<RpcContext> {
 
     INSTANCE;
 
@@ -36,6 +36,7 @@ public enum AlibabaDubboTextMapPropagator implements TextHeaderGetter<RpcContext
 
     @Override
     public <S> void forEach(String headerName, RpcContext rpcContext, S state, HeaderConsumer<String, S> consumer) {
+        //consumer.accept(invocation.getAttachment(headerName), state);
         consumer.accept(rpcContext.getAttachment(headerName), state);
     }
 

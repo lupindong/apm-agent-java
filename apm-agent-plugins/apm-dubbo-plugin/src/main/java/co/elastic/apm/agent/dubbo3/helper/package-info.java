@@ -16,14 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package co.elastic.apm.agent.dubbo.api.impl;
+@NonnullApi
+package co.elastic.apm.agent.dubbo3.helper;
 
-import co.elastic.apm.agent.dubbo.api.AnotherApi;
-
-public class AnotherApiImpl implements AnotherApi {
-
-    @Override
-    public String echo(String arg) {
-        return arg;
-    }
-}
+import co.elastic.apm.agent.sdk.NonnullApi;

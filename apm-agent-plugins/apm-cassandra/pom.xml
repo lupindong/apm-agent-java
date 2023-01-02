@@ -10,9 +10,9 @@
     <artifactId>apm-cassandra</artifactId>
     <name>${project.groupId}:${project.artifactId}</name>
     <modules>
-        <module>apm-cassandra-core-plugin</module>
-        <module>apm-cassandra3-plugin</module>
-        <module>apm-cassandra4-plugin</module>
+<!--        <module>apm-cassandra-core-plugin</module>-->
+        <!--<module>apm-cassandra3-plugin</module>-->
+        <!--<module>apm-cassandra4-plugin</module>-->
     </modules>
     <packaging>pom</packaging>
 

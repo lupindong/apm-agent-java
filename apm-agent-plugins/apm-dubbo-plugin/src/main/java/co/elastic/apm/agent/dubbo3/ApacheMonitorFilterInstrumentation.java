@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package co.elastic.apm.agent.dubbo;
+package co.elastic.apm.agent.dubbo3;
 
 import net.bytebuddy.description.method.MethodDescription;
 import net.bytebuddy.description.type.TypeDescription;
@@ -34,7 +34,7 @@ public class ApacheMonitorFilterInstrumentation extends AbstractDubboInstrumenta
 
     @Override
     public ElementMatcher<? super TypeDescription> getTypeMatcher() {
-        return named("org.apache.dubbo.monitor.support.MonitorFilter");
+        return named("com.oristartech.operation.adaptor.DubboNoopFilter");
     }
 
     /**
@@ -53,7 +53,7 @@ public class ApacheMonitorFilterInstrumentation extends AbstractDubboInstrumenta
 
     @Override
     public String getAdviceClassName() {
-        return "co.elastic.apm.agent.dubbo.advice.ApacheMonitorFilterAdvice";
+        return "co.elastic.apm.agent.dubbo3.advice.ApacheMonitorFilterAdvice";
     }
 
 }

@@ -16,10 +16,8 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package co.elastic.apm.agent.dubbo.api.exception;
+package co.elastic.apm.agent.dubbo3.api;
 
-public class BizException extends RuntimeException {
-    public BizException(String message) {
-        super(message);
-    }
+public interface AnotherApi {
+    String echo(String arg);
 }
