@@ -47,7 +47,9 @@ public class DubboTraceHelper {
         }
 
         span.withType(EXTERNAL_TYPE)
-            .withSubtype(DUBBO_SUBTYPE);
+            .withSubtype(DUBBO_SUBTYPE)
+            .withAction("invoke")
+        ;
         span.updateName(apiClass, methodName + " (" + CommonConstants.CONSUMER + ")");
 
         if (remoteAddress != null) {
