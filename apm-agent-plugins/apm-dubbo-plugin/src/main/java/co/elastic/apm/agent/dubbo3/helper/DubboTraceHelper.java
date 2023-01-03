@@ -23,6 +23,8 @@ import co.elastic.apm.agent.impl.context.Destination;
 import co.elastic.apm.agent.impl.transaction.AbstractSpan;
 import co.elastic.apm.agent.impl.transaction.Span;
 import co.elastic.apm.agent.impl.transaction.Transaction;
+import org.apache.dubbo.common.Version;
+import org.apache.dubbo.common.constants.CommonConstants;
 
 import javax.annotation.Nullable;
 import java.net.InetSocketAddress;
@@ -46,7 +48,7 @@ public class DubboTraceHelper {
 
         span.withType(EXTERNAL_TYPE)
             .withSubtype(DUBBO_SUBTYPE);
-        span.updateName(apiClass, methodName);
+        span.updateName(apiClass, methodName + " (" + CommonConstants.CONSUMER + ")");
 
         if (remoteAddress != null) {
             Destination destination = span.getContext().getDestination();
@@ -68,7 +70,9 @@ public class DubboTraceHelper {
     }
 
     public static void fillTransaction(Transaction transaction, Class<?> apiClass, String methodName) {
-        transaction.updateName(apiClass, methodName);
+        transaction.updateName(apiClass, methodName + " (" + CommonConstants.PROVIDER + ")");
         transaction.withType(Transaction.TYPE_REQUEST);
+        transaction.setFrameworkName(CommonConstants.DUBBO);
+        transaction.setFrameworkVersion(Version.getVersion());
     }
 }

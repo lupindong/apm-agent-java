@@ -24,17 +24,13 @@ import net.bytebuddy.matcher.ElementMatcher;
 import org.apache.dubbo.rpc.Invocation;
 import org.apache.dubbo.rpc.Invoker;
 
-import static net.bytebuddy.matcher.ElementMatchers.declaresMethod;
-import static net.bytebuddy.matcher.ElementMatchers.hasSuperType;
-import static net.bytebuddy.matcher.ElementMatchers.named;
-import static net.bytebuddy.matcher.ElementMatchers.returns;
-import static net.bytebuddy.matcher.ElementMatchers.takesArgument;
+import static net.bytebuddy.matcher.ElementMatchers.*;
 
 public class ApacheMonitorFilterInstrumentation extends AbstractDubboInstrumentation {
 
     @Override
     public ElementMatcher<? super TypeDescription> getTypeMatcher() {
-        return named("com.oristartech.operation.adaptor.DubboNoopFilter");
+        return named("org.apache.dubbo.monitor.support.MonitorFilter");
     }
 
     /**
