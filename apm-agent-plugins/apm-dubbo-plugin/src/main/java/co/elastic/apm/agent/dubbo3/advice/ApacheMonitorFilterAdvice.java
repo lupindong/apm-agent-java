@@ -37,7 +37,7 @@ import java.util.function.BiConsumer;
 
 public class ApacheMonitorFilterAdvice {
 
-    private static final ElasticApmTracer tracer = GlobalTracer.requireTracerImpl();
+    private static final ElasticApmTracer APM_TRACER = GlobalTracer.requireTracerImpl();
 
     @Nullable
     @Advice.OnMethodEnter(suppress = Throwable.class, inline = false)
@@ -47,13 +47,13 @@ public class ApacheMonitorFilterAdvice {
         Class<?> apiClass = invocation.getInvoker().getInterface();
         String methodName = invocation.getMethodName();
 
-        AbstractSpan<?> activeSpan = tracer.getActive();
+        AbstractSpan<?> activeSpan = APM_TRACER.getActive();
 
         // for consumer side, just create span, more information will be collected in provider side
         if (serviceContext.isConsumerSide() && activeSpan != null) {
             URL url = serviceContext.getUrl();
             InetSocketAddress socketAddress = new InetSocketAddress(url.getAddress(), url.getPort());
-            Span span = DubboTraceHelper.createConsumerSpan(tracer, apiClass, methodName, socketAddress);
+            Span span = DubboTraceHelper.createConsumerSpan(APM_TRACER, apiClass, methodName, socketAddress);
             if (span != null) {
                 span.propagateTraceContext(serviceContext, ApacheDubboTextMapPropagator.INSTANCE);
                 return span;
@@ -61,7 +61,7 @@ public class ApacheMonitorFilterAdvice {
 
             // for provider side
         } else if (serviceContext.isProviderSide() && activeSpan == null) {
-            Transaction transaction = tracer.startChildTransaction(serviceContext, ApacheDubboTextMapPropagator.INSTANCE, Invocation.class.getClassLoader());
+            Transaction transaction = APM_TRACER.startChildTransaction(serviceContext, ApacheDubboTextMapPropagator.INSTANCE, Invocation.class.getClassLoader());
             if (transaction != null) {
                 transaction.activate();
                 DubboTraceHelper.fillTransaction(transaction, apiClass, methodName);
