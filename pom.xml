@@ -60,16 +60,16 @@
     <modules>
         <module>apm-agent-core</module>
         <module>elastic-apm-agent</module>
-        <module>apm-agent-benchmarks</module>
+<!--        <module>apm-agent-benchmarks</module>-->
         <module>apm-agent-plugins</module>
         <module>apm-agent-api</module>
         <module>apm-opentracing</module>
-        <module>integration-tests</module>
-        <module>apm-agent-attach</module>
+<!--        <module>integration-tests</module>-->
+<!--        <module>apm-agent-attach</module>-->
         <module>apm-agent-plugin-sdk</module>
         <module>apm-agent-bootstrap</module>
         <module>apm-agent</module>
-        <module>apm-agent-attach-cli</module>
+<!--        <module>apm-agent-attach-cli</module>-->
         <module>apm-agent-common</module>
         <module>apm-agent-cached-lookup-key</module>
     </modules>
@@ -339,7 +339,7 @@
 
             </plugin>-->
             <!-- Check that we don't accidentally use features only available in Java 8+ -->
-            <plugin>
+            <!--<plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>animal-sniffer-maven-plugin</artifactId>
                 <executions>
@@ -358,10 +358,10 @@
                         <artifactId>java17</artifactId>
                         <version>1.0</version>
                     </signature>
-                    <!--work around for https://github.com/mojohaus/animal-sniffer/issues/18-->
+                    &lt;!&ndash;work around for https://github.com/mojohaus/animal-sniffer/issues/18&ndash;&gt;
                     <ignores>java.lang.invoke.MethodHandle</ignores>
                 </configuration>
-            </plugin>
+            </plugin>-->
             <plugin>
                 <artifactId>maven-enforcer-plugin</artifactId>
                 <executions>
