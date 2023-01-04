@@ -1,3 +1,21 @@
+/*
+ * Licensed to Elasticsearch B.V. under one or more contributor
+ * license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright
+ * ownership. Elasticsearch B.V. licenses this file to you under
+ * the Apache License, Version 2.0 (the "License"); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
 package co.elastic.apm.agent.rocketmq;
 
 import co.elastic.apm.agent.bci.TracerAwareInstrumentation;
@@ -23,31 +41,27 @@ public class OssMQClientAPIImplInstrumentation extends TracerAwareInstrumentatio
 
     @Override
     public ElementMatcher.Junction<ClassLoader> getClassLoaderMatcher() {
-        return not(isBootstrapClassLoader()).and(classLoaderCanLoadClass("org.apache.kafka.clients.consumer.ConsumerRecord"));
+        return not(isBootstrapClassLoader()).and(classLoaderCanLoadClass("org.apache.rocketmq.common.message.Message"));
     }
 
     @Override
     public ElementMatcher<? super TypeDescription> getTypeMatcher() {
-        return named("org.apache.dubbo.monitor.support.MonitorFilter");
+        return named("org.apache.rocketmq.client.impl.MQClientAPIImpl");
     }
 
     /**
-     * {@link org.apache.dubbo.monitor.support.MonitorFilter#invoke(Invoker, Invocation)}
+     * {@link org.apache.rocketmq.client.impl.MQClientAPIImpl#sendMessage}
      */
     @Override
     public ElementMatcher<? super MethodDescription> getMethodMatcher() {
-        return named("invoke")
-            .and(takesArgument(0, named("org.apache.dubbo.rpc.Invoker")))
-            .and(takesArgument(1, named("org.apache.dubbo.rpc.Invocation")))
-            // makes sure we only instrument Dubbo 2.7.3+ which introduces this method
-            .and(returns(hasSuperType(named("org.apache.dubbo.rpc.Result"))
-                .and(declaresMethod(named("whenCompleteWithContext")
-                    .and(takesArgument(0, named("java.util.function.BiConsumer")))))));
+        return isPublic().and(
+            named("sendMessage").and(takesArguments(12))
+        );
     }
 
     @Override
     public String getAdviceClassName() {
-        return "co.elastic.apm.agent.dubbo3.advice.ApacheMonitorFilterAdvice";
+        return "co.elastic.apm.agent.rocketmq.advice.MessageSendAdvice";
     }
 
 }

@@ -53,13 +53,15 @@ public class DubboMonitorFilterInstrumentation extends TracerAwareInstrumentatio
      */
     @Override
     public ElementMatcher<? super MethodDescription> getMethodMatcher() {
-        return named("invoke")
-            .and(takesArgument(0, named("org.apache.dubbo.rpc.Invoker")))
-            .and(takesArgument(1, named("org.apache.dubbo.rpc.Invocation")))
-            // makes sure we only instrument Dubbo 2.7.3+ which introduces this method
-            .and(returns(hasSuperType(named("org.apache.dubbo.rpc.Result"))
-                .and(declaresMethod(named("whenCompleteWithContext")
-                    .and(takesArgument(0, named("java.util.function.BiConsumer")))))));
+        return isPublic().and(
+            named("invoke")
+                .and(takesArgument(0, named("org.apache.dubbo.rpc.Invoker")))
+                .and(takesArgument(1, named("org.apache.dubbo.rpc.Invocation")))
+                // makes sure we only instrument Dubbo 2.7.3+ which introduces this method
+                .and(returns(hasSuperType(named("org.apache.dubbo.rpc.Result"))
+                    .and(declaresMethod(named("whenCompleteWithContext")
+                        .and(takesArgument(0, named("java.util.function.BiConsumer")))))))
+        );
     }
 
     @Override
