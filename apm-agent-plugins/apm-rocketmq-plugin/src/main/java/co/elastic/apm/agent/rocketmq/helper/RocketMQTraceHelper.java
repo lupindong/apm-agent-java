@@ -24,19 +24,27 @@ import co.elastic.apm.agent.impl.GlobalTracer;
 import co.elastic.apm.agent.impl.context.ServiceTarget;
 import co.elastic.apm.agent.impl.transaction.Span;
 import co.elastic.apm.agent.matcher.WildcardMatcher;
+import co.elastic.apm.agent.objectpool.Allocator;
+import co.elastic.apm.agent.objectpool.ObjectPool;
+import co.elastic.apm.agent.objectpool.impl.QueueBasedObjectPool;
 import co.elastic.apm.agent.sdk.logging.Logger;
 import co.elastic.apm.agent.sdk.logging.LoggerFactory;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.rocketmq.client.impl.CommunicationMode;
+import org.apache.rocketmq.client.producer.SendCallback;
 import org.apache.rocketmq.common.message.Message;
-import org.apache.rocketmq.common.protocol.header.SendMessageRequestHeader;
+import org.jctools.queues.atomic.AtomicQueueFactory;
 
 import javax.annotation.Nullable;
 import java.util.Map;
+
+import static org.jctools.queues.spec.ConcurrentQueueSpec.createBoundedMpmc;
 
 public class RocketMQTraceHelper {
 
     public static final Logger LOGGER = LoggerFactory.getLogger(RocketMQTraceHelper.class);
     private static final RocketMQTraceHelper INSTANCE = new RocketMQTraceHelper(GlobalTracer.requireTracerImpl());
+    private final ObjectPool<SendCallbackWrapper> sendCallbackWrapperObjectPool;
     private static final String COLON = ":";
     private final ElasticApmTracer tracer;
     private final MessagingConfiguration messagingConfiguration;
@@ -48,10 +56,41 @@ public class RocketMQTraceHelper {
     public RocketMQTraceHelper(ElasticApmTracer tracer) {
         this.tracer = tracer;
         messagingConfiguration = tracer.getConfig(MessagingConfiguration.class);
+        this.sendCallbackWrapperObjectPool = QueueBasedObjectPool.ofRecyclable(
+            AtomicQueueFactory.<SendCallbackWrapper>newQueue(
+                createBoundedMpmc(256)),
+            false,
+            new SendCallbackWrapperAllocator()
+        );
+    }
+
+    private final class SendCallbackWrapperAllocator implements Allocator<SendCallbackWrapper> {
+        @Override
+        public SendCallbackWrapper createInstance() {
+            return new SendCallbackWrapper(RocketMQTraceHelper.this);
+        }
     }
 
     @Nullable
-    public Span onSendStart(String addr, String brokerName, Message message, SendMessageRequestHeader requestHeader) {
+    public SendCallback wrapSendCallback(@Nullable SendCallback callback, Span span) {
+        if (callback instanceof SendCallbackWrapper) {
+            return callback;
+        }
+        try {
+            return sendCallbackWrapperObjectPool.createInstance().wrap(callback, span);
+        } catch (Throwable throwable) {
+            LOGGER.error("Failed to wrap RocketMQ send callback", throwable);
+            return callback;
+        }
+    }
+
+    void recycle(SendCallbackWrapper sendCallbackWrapper) {
+        this.sendCallbackWrapperObjectPool.recycle(sendCallbackWrapper);
+    }
+
+    @Nullable
+    public Span onSendStart(String addr, String brokerName, Message message, String producerGroup,
+                            CommunicationMode communicationMode) {
         String topic = message.getTopic();
         if (ignoreTopic(topic)) {
             return null;
@@ -65,10 +104,11 @@ public class RocketMQTraceHelper {
         span.withType("messaging")
             .withSubtype("RocketMQ")
             .withAction("send")
-            .withName("Send To ")
+            .withName(communicationMode.name() + " Send To ")
             .appendToName(topic);
 
         co.elastic.apm.agent.impl.context.Message apmMessage = span.getContext().getMessage().withQueue(topic);
+        apmMessage.addHeader("producerGroup", producerGroup);
         if (message.getProperties() != null) {
             for (Map.Entry<String, String> entry : message.getProperties().entrySet()) {
                 apmMessage.addHeader(entry.getKey(), entry.getValue());
@@ -94,12 +134,8 @@ public class RocketMQTraceHelper {
         if (span == null) {
             return;
         }
-        if (messagingConfiguration.shouldCollectQueueAddress()) {
-            // TODO
-        }
-
         span.captureException(throwable);
-        span.deactivate();
-        span.end();
+        span.deactivate().end();
     }
+
 }

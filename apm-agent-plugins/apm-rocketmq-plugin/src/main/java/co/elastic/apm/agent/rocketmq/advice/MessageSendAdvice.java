@@ -23,6 +23,7 @@ import co.elastic.apm.agent.rocketmq.helper.RocketMQTraceHelper;
 import co.elastic.apm.agent.sdk.logging.Logger;
 import co.elastic.apm.agent.sdk.logging.LoggerFactory;
 import net.bytebuddy.asm.Advice;
+import org.apache.rocketmq.client.impl.CommunicationMode;
 import org.apache.rocketmq.client.producer.SendCallback;
 import org.apache.rocketmq.common.message.Message;
 import org.apache.rocketmq.common.protocol.header.SendMessageRequestHeader;
@@ -42,16 +43,15 @@ public class MessageSendAdvice {
         @Advice.Argument(1) String brokerName,
         @Advice.Argument(2) Message message,
         @Advice.Argument(3) SendMessageRequestHeader requestHeader,
+        @Advice.Argument(5) CommunicationMode communicationMode,
         @Advice.Argument(6) SendCallback sendCallback) {
 
-        LOGGER.info("beforeMethod...");
-
         try {
-            Span span = HELPER.onSendStart(addr, brokerName, message, requestHeader);
+            Span span = HELPER.onSendStart(addr, brokerName, message, requestHeader.getProducerGroup(), communicationMode);
             if (span == null) {
                 return sendCallback;
             }
-            // TODO
+            HELPER.wrapSendCallback(sendCallback, span);
         } catch (Exception e) {
             // 忽略异常不处理，避免影响业务
             LOGGER.error(e.getMessage(), e);
@@ -65,8 +65,6 @@ public class MessageSendAdvice {
         @Advice.Argument(2) Message message,
         @Advice.Enter @Nullable final Object spanObj,
         @Advice.Thrown final Throwable throwable) {
-
-        LOGGER.info("afterMethod...");
 
         try {
             HELPER.onSendEnd(message, spanObj, throwable);
