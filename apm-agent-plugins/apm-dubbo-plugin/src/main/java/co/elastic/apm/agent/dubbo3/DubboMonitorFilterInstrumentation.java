@@ -18,15 +18,24 @@
  */
 package co.elastic.apm.agent.dubbo3;
 
+import co.elastic.apm.agent.bci.TracerAwareInstrumentation;
 import net.bytebuddy.description.method.MethodDescription;
 import net.bytebuddy.description.type.TypeDescription;
 import net.bytebuddy.matcher.ElementMatcher;
 import org.apache.dubbo.rpc.Invocation;
 import org.apache.dubbo.rpc.Invoker;
 
+import java.util.Collection;
+import java.util.Collections;
+
 import static net.bytebuddy.matcher.ElementMatchers.*;
 
-public class ApacheMonitorFilterInstrumentation extends AbstractDubboInstrumentation {
+public class DubboMonitorFilterInstrumentation extends TracerAwareInstrumentation {
+
+    @Override
+    public Collection<String> getInstrumentationGroupNames() {
+        return Collections.singleton("star-dubbo");
+    }
 
     @Override
     public ElementMatcher<? super TypeDescription> getTypeMatcher() {

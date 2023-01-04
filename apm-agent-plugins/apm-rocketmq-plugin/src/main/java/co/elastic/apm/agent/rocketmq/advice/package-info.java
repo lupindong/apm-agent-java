@@ -16,18 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package co.elastic.apm.agent.dubbo3;
+@NonnullApi
+package co.elastic.apm.agent.rocketmq.advice;
 
-import co.elastic.apm.agent.bci.TracerAwareInstrumentation;
-
-import java.util.Collection;
-import java.util.Collections;
-
-public abstract class AbstractDubboInstrumentation extends TracerAwareInstrumentation {
-
-    @Override
-    public Collection<String> getInstrumentationGroupNames() {
-        return Collections.singleton("star-dubbo");
-    }
-
-}
+import co.elastic.apm.agent.sdk.NonnullApi;

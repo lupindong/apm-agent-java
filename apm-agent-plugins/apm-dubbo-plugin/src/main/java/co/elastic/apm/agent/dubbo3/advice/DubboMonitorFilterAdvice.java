@@ -35,7 +35,7 @@ import javax.annotation.Nullable;
 import java.net.InetSocketAddress;
 import java.util.function.BiConsumer;
 
-public class ApacheMonitorFilterAdvice {
+public class DubboMonitorFilterAdvice {
 
     private static final ElasticApmTracer APM_TRACER = GlobalTracer.requireTracerImpl();
 

@@ -1,1 +1,1 @@
-co.elastic.apm.agent.dubbo3.ApacheMonitorFilterInstrumentation
+co.elastic.apm.agent.dubbo3.DubboMonitorFilterInstrumentation
