@@ -28,6 +28,7 @@ import org.apache.dubbo.rpc.Invoker;
 import java.util.Collection;
 import java.util.Collections;
 
+import static co.elastic.apm.agent.bci.bytebuddy.CustomElementMatchers.classLoaderCanLoadClass;
 import static net.bytebuddy.matcher.ElementMatchers.*;
 
 public class DubboMonitorFilterInstrumentation extends TracerAwareInstrumentation {
@@ -35,6 +36,11 @@ public class DubboMonitorFilterInstrumentation extends TracerAwareInstrumentatio
     @Override
     public Collection<String> getInstrumentationGroupNames() {
         return Collections.singleton("star-dubbo");
+    }
+
+    @Override
+    public ElementMatcher.Junction<ClassLoader> getClassLoaderMatcher() {
+        return not(isBootstrapClassLoader()).and(classLoaderCanLoadClass("org.apache.dubbo.rpc.Result"));
     }
 
     @Override
@@ -58,7 +64,7 @@ public class DubboMonitorFilterInstrumentation extends TracerAwareInstrumentatio
 
     @Override
     public String getAdviceClassName() {
-        return "co.elastic.apm.agent.dubbo3.advice.ApacheMonitorFilterAdvice";
+        return "co.elastic.apm.agent.dubbo3.advice.DubboMonitorFilterAdvice";
     }
 
 }
