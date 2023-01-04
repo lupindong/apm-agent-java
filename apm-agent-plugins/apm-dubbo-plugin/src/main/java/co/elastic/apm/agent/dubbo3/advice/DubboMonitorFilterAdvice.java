@@ -27,6 +27,8 @@ import co.elastic.apm.agent.impl.transaction.AbstractSpan;
 import co.elastic.apm.agent.impl.transaction.Outcome;
 import co.elastic.apm.agent.impl.transaction.Span;
 import co.elastic.apm.agent.impl.transaction.Transaction;
+import co.elastic.apm.agent.sdk.logging.Logger;
+import co.elastic.apm.agent.sdk.logging.LoggerFactory;
 import net.bytebuddy.asm.Advice;
 import org.apache.dubbo.common.URL;
 import org.apache.dubbo.rpc.*;
@@ -37,38 +39,43 @@ import java.util.function.BiConsumer;
 
 public class DubboMonitorFilterAdvice {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(DubboMonitorFilterAdvice.class);
+
     private static final ElasticApmTracer APM_TRACER = GlobalTracer.requireTracerImpl();
 
     @Nullable
     @Advice.OnMethodEnter(suppress = Throwable.class, inline = false)
     public static Object onEnterFilterInvoke(@Advice.Argument(1) Invocation invocation) {
+        try {
+            RpcServiceContext serviceContext = RpcContext.getServiceContext();
+            Class<?> apiClass = invocation.getInvoker().getInterface();
+            String methodName = invocation.getMethodName();
 
-        RpcServiceContext serviceContext = RpcContext.getServiceContext();
-        Class<?> apiClass = invocation.getInvoker().getInterface();
-        String methodName = invocation.getMethodName();
+            AbstractSpan<?> activeSpan = APM_TRACER.getActive();
 
-        AbstractSpan<?> activeSpan = APM_TRACER.getActive();
+            // for consumer side, just create span, more information will be collected in provider side
+            if (serviceContext.isConsumerSide() && activeSpan != null) {
+                URL url = serviceContext.getUrl();
+                InetSocketAddress socketAddress = new InetSocketAddress(url.getAddress(), url.getPort());
+                Span span = DubboTraceHelper.createConsumerSpan(APM_TRACER, apiClass, methodName, socketAddress);
+                if (span != null) {
+                    span.propagateTraceContext(serviceContext, ApacheDubboTextMapPropagator.INSTANCE);
+                    return span;
+                }
 
-        // for consumer side, just create span, more information will be collected in provider side
-        if (serviceContext.isConsumerSide() && activeSpan != null) {
-            URL url = serviceContext.getUrl();
-            InetSocketAddress socketAddress = new InetSocketAddress(url.getAddress(), url.getPort());
-            Span span = DubboTraceHelper.createConsumerSpan(APM_TRACER, apiClass, methodName, socketAddress);
-            if (span != null) {
-                span.propagateTraceContext(serviceContext, ApacheDubboTextMapPropagator.INSTANCE);
-                return span;
+                // for provider side
+            } else if (serviceContext.isProviderSide() && activeSpan == null) {
+                Transaction transaction = APM_TRACER.startChildTransaction(serviceContext, ApacheDubboTextMapPropagator.INSTANCE, Invocation.class.getClassLoader());
+                if (transaction != null) {
+                    transaction.activate();
+                    DubboTraceHelper.fillTransaction(transaction, apiClass, methodName);
+                    return transaction;
+                }
             }
-
-            // for provider side
-        } else if (serviceContext.isProviderSide() && activeSpan == null) {
-            Transaction transaction = APM_TRACER.startChildTransaction(serviceContext, ApacheDubboTextMapPropagator.INSTANCE, Invocation.class.getClassLoader());
-            if (transaction != null) {
-                transaction.activate();
-                DubboTraceHelper.fillTransaction(transaction, apiClass, methodName);
-                return transaction;
-            }
+        } catch (Exception e) {
+            // 忽略异常不处理，避免影响业务
+            LOGGER.error(e.getMessage(), e);
         }
-
         return null;
     }
 
@@ -77,22 +84,26 @@ public class DubboMonitorFilterAdvice {
                                           @Advice.Return @Nullable Result result,
                                           @Advice.Enter @Nullable final Object spanObj,
                                           @Advice.Thrown @Nullable Throwable t) {
-
-        AbstractSpan<?> span = (AbstractSpan<?>) spanObj;
-        if (span == null) {
-            return;
-        }
-
-        span.deactivate();
-        if (result instanceof AsyncRpcResult) {
-            RpcContext.getServiceContext().setObjectAttachment(DubboTraceHelper.SPAN_KEY, span);
-            result.whenCompleteWithContext(AsyncCallback.INSTANCE);
-        } else {
-            try {
-                handleException(result, t, span);
-            } finally {
-                span.end();
+        try {
+            AbstractSpan<?> span = (AbstractSpan<?>) spanObj;
+            if (span == null) {
+                return;
             }
+
+            span.deactivate();
+            if (result instanceof AsyncRpcResult) {
+                RpcContext.getServiceContext().setObjectAttachment(DubboTraceHelper.SPAN_KEY, span);
+                result.whenCompleteWithContext(AsyncCallback.INSTANCE);
+            } else {
+                try {
+                    handleException(result, t, span);
+                } finally {
+                    span.end();
+                }
+            }
+        } catch (Exception e) {
+            // 忽略异常不处理，避免影响业务
+            LOGGER.error(e.getMessage(), e);
         }
     }
 
@@ -102,15 +113,20 @@ public class DubboMonitorFilterAdvice {
 
         @Override
         public void accept(@Nullable Result result, @Nullable Throwable t) {
-            AbstractSpan<?> span =
-                (AbstractSpan<?>) RpcContext.getServiceContext().getObjectAttachment(DubboTraceHelper.SPAN_KEY);
-            if (span != null) {
-                try {
-                    RpcContext.getServiceContext().removeAttachment(DubboTraceHelper.SPAN_KEY);
-                    handleException(result, t, span);
-                } finally {
-                    span.end();
+            try {
+                AbstractSpan<?> span =
+                    (AbstractSpan<?>) RpcContext.getServiceContext().getObjectAttachment(DubboTraceHelper.SPAN_KEY);
+                if (span != null) {
+                    try {
+                        RpcContext.getServiceContext().removeAttachment(DubboTraceHelper.SPAN_KEY);
+                        handleException(result, t, span);
+                    } finally {
+                        span.end();
+                    }
                 }
+            } catch (Exception e) {
+                // 忽略异常不处理，避免影响业务
+                LOGGER.error(e.getMessage(), e);
             }
         }
     }
