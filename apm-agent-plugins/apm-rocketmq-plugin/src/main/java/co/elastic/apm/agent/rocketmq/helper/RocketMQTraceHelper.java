@@ -32,10 +32,13 @@ import co.elastic.apm.agent.sdk.logging.LoggerFactory;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.rocketmq.client.impl.CommunicationMode;
 import org.apache.rocketmq.client.producer.SendCallback;
+import org.apache.rocketmq.client.producer.SendResult;
 import org.apache.rocketmq.common.message.Message;
 import org.jctools.queues.atomic.AtomicQueueFactory;
 
 import javax.annotation.Nullable;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 import static org.jctools.queues.spec.ConcurrentQueueSpec.createBoundedMpmc;
@@ -44,10 +47,12 @@ public class RocketMQTraceHelper {
 
     public static final Logger LOGGER = LoggerFactory.getLogger(RocketMQTraceHelper.class);
     private static final RocketMQTraceHelper INSTANCE = new RocketMQTraceHelper(GlobalTracer.requireTracerImpl());
-    private final ObjectPool<SendCallbackWrapper> sendCallbackWrapperObjectPool;
     private static final String COLON = ":";
+    private final ObjectPool<SendCallbackWrapper> sendCallbackWrapperObjectPool;
     private final ElasticApmTracer tracer;
     private final MessagingConfiguration messagingConfiguration;
+
+    private final List<String> ignoreKey = new ArrayList<>();
 
     public static RocketMQTraceHelper get() {
         return INSTANCE;
@@ -62,6 +67,11 @@ public class RocketMQTraceHelper {
             false,
             new SendCallbackWrapperAllocator()
         );
+
+        ignoreKey.add("id");
+        ignoreKey.add("contentType");
+        ignoreKey.add("UNIQ_KEY");
+        ignoreKey.add("WAIT");
     }
 
     private final class SendCallbackWrapperAllocator implements Allocator<SendCallbackWrapper> {
@@ -111,7 +121,14 @@ public class RocketMQTraceHelper {
         apmMessage.addHeader("producerGroup", producerGroup);
         if (message.getProperties() != null) {
             for (Map.Entry<String, String> entry : message.getProperties().entrySet()) {
-                apmMessage.addHeader(entry.getKey(), entry.getValue());
+                String key = entry.getKey();
+                if (!ignoreKey.contains(key)) {
+                    apmMessage.addHeader(key, entry.getValue());
+                }
+            }
+            String uniqKey = message.getProperties().get("UNIQ_KEY");
+            if (StringUtils.isNotBlank(uniqKey)) {
+                apmMessage.addHeader("msgId", uniqKey);
             }
         }
 
@@ -129,13 +146,30 @@ public class RocketMQTraceHelper {
         return WildcardMatcher.isAnyMatch(messagingConfiguration.getIgnoreMessageQueues(), topicName);
     }
 
-    public void onSendEnd(Message message, Object spanObj, Throwable throwable) {
+    public void onSendEnd(SendCallback sendCallback, SendResult sendResult, Throwable throwable) {
         final Span span = this.tracer.getActiveExitSpan();
         if (span == null) {
             return;
         }
-        span.captureException(throwable);
-        span.deactivate().end();
+        try {
+            if (sendResult != null) {
+                co.elastic.apm.agent.impl.context.Message apmMessage = span.getContext().getMessage();
+                apmMessage.addHeader("sendStatus", sendResult.getSendStatus().name());
+                apmMessage.addHeader("msgId", sendResult.getMsgId());
+                apmMessage.addHeader("transactionId", sendResult.getTransactionId());
+                apmMessage.addHeader("offsetMsgId", sendResult.getOffsetMsgId());
+                apmMessage.addHeader("queueId", String.valueOf(sendResult.getMessageQueue().getQueueId()));
+                apmMessage.addHeader("queueOffset", String.valueOf(sendResult.getQueueOffset()));
+            }
+        } finally {
+            span.captureException(throwable);
+            if (sendCallback != null) {
+                // Not ending here, ending in the callback
+                span.deactivate();
+            } else {
+                span.deactivate().end();
+            }
+        }
     }
 
 }

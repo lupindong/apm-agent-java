@@ -20,6 +20,8 @@ package co.elastic.apm.agent.rocketmq.helper;
 
 import co.elastic.apm.agent.impl.transaction.Span;
 import co.elastic.apm.agent.objectpool.Recyclable;
+import co.elastic.apm.agent.sdk.logging.Logger;
+import co.elastic.apm.agent.sdk.logging.LoggerFactory;
 import org.apache.rocketmq.client.producer.SendCallback;
 import org.apache.rocketmq.client.producer.SendResult;
 
@@ -27,6 +29,7 @@ import javax.annotation.Nullable;
 
 public class SendCallbackWrapper implements SendCallback, Recyclable {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(SendCallbackWrapper.class);
     private final RocketMQTraceHelper helper;
     @Nullable
     private SendCallback delegate;
@@ -47,9 +50,15 @@ public class SendCallbackWrapper implements SendCallback, Recyclable {
     public void onSuccess(SendResult sendResult) {
         try {
             span.activate();
-
-
-
+            if (sendResult != null) {
+                co.elastic.apm.agent.impl.context.Message apmMessage = span.getContext().getMessage();
+                apmMessage.addHeader("sendStatus", sendResult.getSendStatus().name());
+                apmMessage.addHeader("msgId", sendResult.getMsgId());
+                apmMessage.addHeader("transactionId", sendResult.getTransactionId());
+                apmMessage.addHeader("offsetMsgId", sendResult.getOffsetMsgId());
+                apmMessage.addHeader("queueId", String.valueOf(sendResult.getMessageQueue().getQueueId()));
+                apmMessage.addHeader("queueOffset", String.valueOf(sendResult.getQueueOffset()));
+            }
             if (delegate != null) {
                 delegate.onSuccess(sendResult);
             }
