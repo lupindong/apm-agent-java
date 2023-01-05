@@ -16,8 +16,9 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package co.elastic.apm.agent.rocketmq;
+package co.elastic.apm.agent.rocketmq.oss;
 
+import co.elastic.apm.agent.rocketmq.AbstractRocketMQInstrumentation;
 import net.bytebuddy.description.method.MethodDescription;
 import net.bytebuddy.description.type.TypeDescription;
 import net.bytebuddy.matcher.ElementMatcher;
@@ -26,22 +27,22 @@ import static co.elastic.apm.agent.bci.bytebuddy.CustomElementMatchers.classLoad
 import static net.bytebuddy.matcher.ElementMatchers.*;
 
 /**
- * 商业版MQClientAPIImpl
+ * 开源版MQClientAPIImpl
  */
-public class BizMQClientAPIImplInstrumentation extends AbstractRocketMQInstrumentation {
+public class MQClientAPIImplInstrumentation extends AbstractRocketMQInstrumentation {
 
     @Override
     public ElementMatcher.Junction<ClassLoader> getClassLoaderMatcher() {
-        return not(isBootstrapClassLoader()).and(classLoaderCanLoadClass("com.aliyun.openservices.ons.api.Message"));
+        return not(isBootstrapClassLoader()).and(classLoaderCanLoadClass("org.apache.rocketmq.common.message.Message"));
     }
 
     @Override
     public ElementMatcher<? super TypeDescription> getTypeMatcher() {
-        return named("com.aliyun.openservices.shade.com.alibaba.rocketmq.client.impl.MQClientAPIImpl");
+        return named("org.apache.rocketmq.client.impl.MQClientAPIImpl");
     }
 
     /**
-     * {@link com.aliyun.openservices.shade.com.alibaba.rocketmq.client.impl.MQClientAPIImpl#sendMessage}
+     * {@link org.apache.rocketmq.client.impl.MQClientAPIImpl#sendMessage}
      */
     @Override
     public ElementMatcher<? super MethodDescription> getMethodMatcher() {
@@ -52,7 +53,7 @@ public class BizMQClientAPIImplInstrumentation extends AbstractRocketMQInstrumen
 
     @Override
     public String getAdviceClassName() {
-        return "co.elastic.apm.agent.rocketmq.advice.MessageSendAdvice";
+        return "co.elastic.apm.agent.rocketmq.oss.advice.MessageSendAdvice";
     }
 
 }

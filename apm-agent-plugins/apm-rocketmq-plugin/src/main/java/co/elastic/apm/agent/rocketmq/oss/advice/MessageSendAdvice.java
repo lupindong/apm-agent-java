@@ -16,10 +16,10 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package co.elastic.apm.agent.rocketmq.advice;
+package co.elastic.apm.agent.rocketmq.oss.advice;
 
 import co.elastic.apm.agent.impl.transaction.Span;
-import co.elastic.apm.agent.rocketmq.helper.RocketMQTraceHelper;
+import co.elastic.apm.agent.rocketmq.oss.helper.RocketMQTraceHelper;
 import co.elastic.apm.agent.sdk.logging.Logger;
 import co.elastic.apm.agent.sdk.logging.LoggerFactory;
 import net.bytebuddy.asm.Advice;

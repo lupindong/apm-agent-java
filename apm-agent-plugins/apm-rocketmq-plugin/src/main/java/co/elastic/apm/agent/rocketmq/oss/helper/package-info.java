@@ -17,6 +17,6 @@
  * under the License.
  */
 @NonnullApi
-package co.elastic.apm.agent.rocketmq.advice;
+package co.elastic.apm.agent.rocketmq.oss.advice.helper;
 
 import co.elastic.apm.agent.sdk.NonnullApi;
