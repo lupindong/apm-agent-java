@@ -26,22 +26,22 @@ import static co.elastic.apm.agent.bci.bytebuddy.CustomElementMatchers.classLoad
 import static net.bytebuddy.matcher.ElementMatchers.*;
 
 /**
- * 开源版MQClientAPIImpl
+ * 商业版MQClientAPIImpl
  */
-public class OssMQClientAPIImplInstrumentation extends AbstractRocketMQInstrumentation {
+public class BizMQClientAPIImplInstrumentation extends AbstractRocketMQInstrumentation {
 
     @Override
     public ElementMatcher.Junction<ClassLoader> getClassLoaderMatcher() {
-        return not(isBootstrapClassLoader()).and(classLoaderCanLoadClass("org.apache.rocketmq.common.message.Message"));
+        return not(isBootstrapClassLoader()).and(classLoaderCanLoadClass("com.aliyun.openservices.ons.api.Message"));
     }
 
     @Override
     public ElementMatcher<? super TypeDescription> getTypeMatcher() {
-        return named("org.apache.rocketmq.client.impl.MQClientAPIImpl");
+        return named("com.aliyun.openservices.shade.com.alibaba.rocketmq.client.impl.MQClientAPIImpl");
     }
 
     /**
-     * {@link org.apache.rocketmq.client.impl.MQClientAPIImpl#sendMessage}
+     * {@link com.aliyun.openservices.shade.com.alibaba.rocketmq.client.impl.MQClientAPIImpl#sendMessage}
      */
     @Override
     public ElementMatcher<? super MethodDescription> getMethodMatcher() {
