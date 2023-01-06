@@ -46,11 +46,11 @@
             <artifactId>apm-api-plugin</artifactId>
             <version>${project.version}</version>
         </dependency>
-        <dependency>
+        <!--<dependency>
             <groupId>${project.groupId}</groupId>
             <artifactId>apm-asynchttpclient-plugin</artifactId>
             <version>${project.version}</version>
-        </dependency>
+        </dependency>-->
         <!--<dependency>
             <groupId>${project.groupId}</groupId>
             <artifactId>apm-cassandra3-plugin</artifactId>
@@ -71,7 +71,7 @@
             <artifactId>apm-rocketmq-plugin</artifactId>
             <version>${project.version}</version>
         </dependency>
-        <dependency>
+        <!--<dependency>
             <groupId>${project.groupId}</groupId>
             <artifactId>apm-es-restclient-plugin-5_6</artifactId>
             <version>${project.version}</version>
@@ -80,18 +80,18 @@
             <groupId>${project.groupId}</groupId>
             <artifactId>apm-es-restclient-plugin-6_4</artifactId>
             <version>${project.version}</version>
-        </dependency>
-        <dependency>
+        </dependency>-->
+        <!--<dependency>
             <groupId>${project.groupId}</groupId>
             <artifactId>apm-grails-plugin</artifactId>
             <version>${project.version}</version>
-        </dependency>
-        <dependency>
+        </dependency>-->
+        <!--<dependency>
             <groupId>${project.groupId}</groupId>
             <artifactId>apm-grpc-plugin</artifactId>
             <version>${project.version}</version>
-        </dependency>
-        <dependency>
+        </dependency>-->
+        <!--<dependency>
             <groupId>${project.groupId}</groupId>
             <artifactId>apm-hibernate-search-plugin-5_x</artifactId>
             <version>${project.version}</version>
@@ -180,8 +180,8 @@
             <groupId>${project.groupId}</groupId>
             <artifactId>apm-log-shipper-plugin</artifactId>
             <version>${project.version}</version>
-        </dependency>
-        <dependency>
+        </dependency>-->
+        <!--<dependency>
             <groupId>${project.groupId}</groupId>
             <artifactId>apm-log4j1-plugin</artifactId>
             <version>${project.version}</version>
@@ -190,8 +190,8 @@
             <groupId>${project.groupId}</groupId>
             <artifactId>apm-log4j2-plugin</artifactId>
             <version>${project.version}</version>
-        </dependency>
-        <dependency>
+        </dependency>-->
+        <!--<dependency>
             <groupId>${project.groupId}</groupId>
             <artifactId>apm-opentelemetry-plugin</artifactId>
             <version>${project.version}</version>
@@ -200,13 +200,13 @@
             <groupId>${project.groupId}</groupId>
             <artifactId>apm-logback-plugin-impl</artifactId>
             <version>${project.version}</version>
-        </dependency>
-        <dependency>
+        </dependency>-->
+        <!--<dependency>
             <groupId>${project.groupId}</groupId>
             <artifactId>apm-jboss-logging-plugin</artifactId>
             <version>${project.version}</version>
-        </dependency>
-        <dependency>
+        </dependency>-->
+        <!--<dependency>
             <groupId>${project.groupId}</groupId>
             <artifactId>apm-slf4j-plugin</artifactId>
             <version>${project.version}</version>
@@ -245,8 +245,8 @@
             <groupId>${project.groupId}</groupId>
             <artifactId>apm-profiling-plugin</artifactId>
             <version>${project.version}</version>
-        </dependency>
-        <dependency>
+        </dependency>-->
+        <!--<dependency>
             <groupId>${project.groupId}</groupId>
             <artifactId>apm-quartz-1-plugin</artifactId>
             <version>${project.version}</version>
@@ -270,13 +270,13 @@
             <groupId>${project.groupId}</groupId>
             <artifactId>apm-reactor-plugin</artifactId>
             <version>${project.version}</version>
-        </dependency>
-        <dependency>
+        </dependency>-->
+        <!--<dependency>
             <groupId>${project.groupId}</groupId>
             <artifactId>apm-redisson-plugin</artifactId>
             <version>${project.version}</version>
-        </dependency>
-        <dependency>
+        </dependency>-->
+        <!--<dependency>
             <groupId>${project.groupId}</groupId>
             <artifactId>apm-scala-concurrent-plugin</artifactId>
             <version>${project.version}</version>
@@ -285,18 +285,18 @@
             <groupId>${project.groupId}</groupId>
             <artifactId>apm-scheduled-annotation-plugin</artifactId>
             <version>${project.version}</version>
-        </dependency>
-        <dependency>
+        </dependency>-->
+        <!--<dependency>
             <groupId>${project.groupId}</groupId>
             <artifactId>apm-servlet-plugin</artifactId>
             <version>${project.version}</version>
-        </dependency>
-        <dependency>
+        </dependency>-->
+        <!--<dependency>
             <groupId>${project.groupId}</groupId>
             <artifactId>apm-sparkjava-plugin</artifactId>
             <version>${project.version}</version>
-        </dependency>
-        <dependency>
+        </dependency>-->
+        <!--<dependency>
             <groupId>${project.groupId}</groupId>
             <artifactId>apm-spring-resttemplate-plugin</artifactId>
             <version>${project.version}</version>
@@ -310,18 +310,18 @@
             <groupId>${project.groupId}</groupId>
             <artifactId>apm-spring-webmvc-plugin</artifactId>
             <version>${project.version}</version>
-        </dependency>
-        <dependency>
+        </dependency>-->
+        <!--<dependency>
             <groupId>${project.groupId}</groupId>
             <artifactId>apm-struts-plugin</artifactId>
             <version>${project.version}</version>
-        </dependency>
-        <dependency>
+        </dependency>-->
+        <!--<dependency>
             <groupId>${project.groupId}</groupId>
             <artifactId>apm-urlconnection-plugin</artifactId>
             <version>${project.version}</version>
-        </dependency>
-        <dependency>
+        </dependency>-->
+        <!--<dependency>
             <groupId>${project.groupId}</groupId>
             <artifactId>apm-vertx3-plugin</artifactId>
             <version>${project.version}</version>
@@ -340,13 +340,13 @@
             <groupId>${project.groupId}</groupId>
             <artifactId>apm-jakarta-websocket-plugin</artifactId>
             <version>${project.version}</version>
-        </dependency>
-        <dependency>
+        </dependency>-->
+        <!--<dependency>
             <groupId>${project.groupId}</groupId>
             <artifactId>apm-ecs-logging-plugin</artifactId>
             <version>${project.version}</version>
-        </dependency>
-        <dependency>
+        </dependency>-->
+       <!-- <dependency>
             <groupId>${project.groupId}</groupId>
             <artifactId>apm-aws-sdk-1-plugin</artifactId>
             <version>${project.version}</version>
@@ -355,7 +355,7 @@
             <groupId>${project.groupId}</groupId>
             <artifactId>apm-aws-sdk-2-plugin</artifactId>
             <version>${project.version}</version>
-        </dependency>
+        </dependency>-->
 
         <!-- For auto-generating configuration docs -->
         <dependency>
