@@ -22,6 +22,7 @@ import co.elastic.apm.agent.configuration.MessagingConfiguration;
 import co.elastic.apm.agent.impl.ElasticApmTracer;
 import co.elastic.apm.agent.impl.GlobalTracer;
 import co.elastic.apm.agent.impl.context.ServiceTarget;
+import co.elastic.apm.agent.impl.transaction.AbstractSpan;
 import co.elastic.apm.agent.impl.transaction.Span;
 import co.elastic.apm.agent.matcher.WildcardMatcher;
 import co.elastic.apm.agent.objectpool.Allocator;
@@ -29,10 +30,12 @@ import co.elastic.apm.agent.objectpool.ObjectPool;
 import co.elastic.apm.agent.objectpool.impl.QueueBasedObjectPool;
 import co.elastic.apm.agent.sdk.logging.Logger;
 import co.elastic.apm.agent.sdk.logging.LoggerFactory;
+import com.aliyun.openservices.shade.com.alibaba.rocketmq.client.consumer.listener.ConsumeConcurrentlyStatus;
 import com.aliyun.openservices.shade.com.alibaba.rocketmq.client.impl.CommunicationMode;
 import com.aliyun.openservices.shade.com.alibaba.rocketmq.client.producer.SendCallback;
 import com.aliyun.openservices.shade.com.alibaba.rocketmq.client.producer.SendResult;
 import com.aliyun.openservices.shade.com.alibaba.rocketmq.common.message.Message;
+import com.aliyun.openservices.shade.com.alibaba.rocketmq.common.message.MessageExt;
 import org.apache.commons.lang3.StringUtils;
 import org.jctools.queues.atomic.AtomicQueueFactory;
 
@@ -75,6 +78,7 @@ public class RocketMQTraceHelper {
         ignoreKey.add("WAIT");
     }
 
+
     private final class SendCallbackWrapperAllocator implements Allocator<SendCallbackWrapper> {
         @Override
         public SendCallbackWrapper createInstance() {
@@ -99,6 +103,16 @@ public class RocketMQTraceHelper {
         this.sendCallbackWrapperObjectPool.recycle(sendCallbackWrapper);
     }
 
+    /**
+     * 发送开始
+     *
+     * @param addr
+     * @param brokerName
+     * @param message
+     * @param producerGroup
+     * @param communicationMode
+     * @return
+     */
     @Nullable
     public Span onSendStart(String addr, String brokerName, Message message, String producerGroup,
                             CommunicationMode communicationMode) {
@@ -162,6 +176,13 @@ public class RocketMQTraceHelper {
         return WildcardMatcher.isAnyMatch(messagingConfiguration.getIgnoreMessageQueues(), topicName);
     }
 
+    /**
+     * 发送结束
+     *
+     * @param sendCallback
+     * @param sendResult
+     * @param throwable
+     */
     public void onSendEnd(SendCallback sendCallback, SendResult sendResult, Throwable throwable) {
         final Span span = this.tracer.getActiveExitSpan();
         if (span == null) {
@@ -188,4 +209,40 @@ public class RocketMQTraceHelper {
         }
     }
 
+
+    @Nullable
+    public void onReceiveStart(List<MessageExt> msgs) {
+        final AbstractSpan<?> activeSpan = tracer.getActive();
+        if (activeSpan == null) {
+            LOGGER.warn("[onReceiveStart]activeSpan == null");
+            return;
+        }
+
+        Span span = activeSpan.createExitSpan();
+        if (span == null) {
+            LOGGER.warn("[onReceiveStart]createExitSpan == null");
+            return;
+        }
+
+        String topic = msgs.get(0).getTopic();
+
+        span.withType("messaging")
+            .withSubtype("RocketMQ")
+            .withAction("receive")
+            .withName("Receive from " + topic, AbstractSpan.PRIO_HIGH_LEVEL_FRAMEWORK);
+
+        span.getContext().getServiceTarget().withType("RocketMQ");
+
+        span.activate();
+    }
+
+    public void onReceiveEnd(List<MessageExt> msgs, ConsumeConcurrentlyStatus status, Throwable throwable) {
+        Span span = tracer.getActiveSpan();
+        if (span != null && "RocketMQ".equals(span.getSubtype()) && "receive".equals(span.getAction())) {
+            if (ConsumeConcurrentlyStatus.RECONSUME_LATER.equals(status)) {
+                span.captureException(throwable);
+            }
+            span.deactivate().end();
+        }
+    }
 }
