@@ -29,15 +29,16 @@ import co.elastic.apm.agent.objectpool.ObjectPool;
 import co.elastic.apm.agent.objectpool.impl.QueueBasedObjectPool;
 import co.elastic.apm.agent.sdk.logging.Logger;
 import co.elastic.apm.agent.sdk.logging.LoggerFactory;
-import org.apache.commons.lang3.StringUtils;
 import com.aliyun.openservices.shade.com.alibaba.rocketmq.client.impl.CommunicationMode;
 import com.aliyun.openservices.shade.com.alibaba.rocketmq.client.producer.SendCallback;
 import com.aliyun.openservices.shade.com.alibaba.rocketmq.client.producer.SendResult;
 import com.aliyun.openservices.shade.com.alibaba.rocketmq.common.message.Message;
+import org.apache.commons.lang3.StringUtils;
 import org.jctools.queues.atomic.AtomicQueueFactory;
 
 import javax.annotation.Nullable;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -47,7 +48,6 @@ public class RocketMQTraceHelper {
 
     public static final Logger LOGGER = LoggerFactory.getLogger(RocketMQTraceHelper.class);
     private static final RocketMQTraceHelper INSTANCE = new RocketMQTraceHelper(GlobalTracer.requireTracerImpl());
-    private static final String COLON = ":";
     private final ObjectPool<SendCallbackWrapper> sendCallbackWrapperObjectPool;
     private final ElasticApmTracer tracer;
     private final MessagingConfiguration messagingConfiguration;
@@ -68,9 +68,10 @@ public class RocketMQTraceHelper {
             new SendCallbackWrapperAllocator()
         );
 
-        ignoreKey.add("id");
-        ignoreKey.add("contentType");
+        ignoreKey.add("ID");
+        ignoreKey.add("CONTENTTYPE");
         ignoreKey.add("UNIQ_KEY");
+        ignoreKey.add("INSTANCE_ID");
         ignoreKey.add("WAIT");
     }
 
@@ -101,7 +102,12 @@ public class RocketMQTraceHelper {
     @Nullable
     public Span onSendStart(String addr, String brokerName, Message message, String producerGroup,
                             CommunicationMode communicationMode) {
-        String topic = message.getTopic();
+        Map<String, String> properties = message.getProperties() != null
+            ? message.getProperties() : new HashMap<String, String>(1);
+        String instanceId = properties.getOrDefault("INSTANCE_ID", "UNKNOWN");
+        String sourceTopic = message.getTopic();
+        String topic = sourceTopic.startsWith(instanceId) ? sourceTopic.substring(instanceId.length() + 1) : sourceTopic;
+
         if (ignoreTopic(topic)) {
             return null;
         }
@@ -118,23 +124,33 @@ public class RocketMQTraceHelper {
             .appendToName(topic);
 
         co.elastic.apm.agent.impl.context.Message apmMessage = span.getContext().getMessage().withQueue(topic);
+
+        producerGroup = producerGroup.startsWith(producerGroup) ? producerGroup.substring(instanceId.length() + 1) : producerGroup;
         apmMessage.addHeader("producerGroup", producerGroup);
-        if (message.getProperties() != null) {
-            for (Map.Entry<String, String> entry : message.getProperties().entrySet()) {
-                String key = entry.getKey();
-                if (!ignoreKey.contains(key)) {
-                    apmMessage.addHeader(key, entry.getValue());
-                }
-            }
-            String uniqKey = message.getProperties().get("UNIQ_KEY");
-            if (StringUtils.isNotBlank(uniqKey)) {
-                apmMessage.addHeader("msgId", uniqKey);
+
+        for (Map.Entry<String, String> entry : properties.entrySet()) {
+            String key = entry.getKey();
+            String value = entry.getValue();
+
+            if (!ignoreKey.contains(key.toUpperCase())) {
+                apmMessage.addHeader(key, value);
+            } else if ("UNIQ_KEY".equals(key)) {
+                apmMessage.addHeader("msgId", value);
             }
         }
 
+        String uniqKey = properties.get("UNIQ_KEY");
+        if (StringUtils.isNotBlank(uniqKey)) {
+            apmMessage.addHeader("msgId", uniqKey);
+        }
+
+        if (!"UNKNOWN".equals(StringUtils.isNotBlank(instanceId))) {
+            apmMessage.addHeader("instanceId", instanceId);
+        }
+
         ServiceTarget serviceTarget = span.getContext().getServiceTarget().withType("RocketMQ").withName(brokerName);
-        if (StringUtils.isNotBlank(addr) && addr.contains(COLON)) {
-            String[] split = addr.split(COLON);
+        if (StringUtils.isNotBlank(addr) && addr.contains(":")) {
+            String[] split = addr.split(":");
             serviceTarget.withHostPortName(split[0], Integer.parseInt(split[1]));
         }
 
