@@ -32,7 +32,6 @@ import co.elastic.apm.agent.objectpool.ObjectPool;
 import co.elastic.apm.agent.objectpool.impl.QueueBasedObjectPool;
 import co.elastic.apm.agent.sdk.logging.Logger;
 import co.elastic.apm.agent.sdk.logging.LoggerFactory;
-import com.aliyun.openservices.ons.api.Consumer;
 import com.aliyun.openservices.shade.com.alibaba.rocketmq.client.impl.CommunicationMode;
 import com.aliyun.openservices.shade.com.alibaba.rocketmq.client.producer.SendCallback;
 import com.aliyun.openservices.shade.com.alibaba.rocketmq.client.producer.SendResult;
@@ -168,7 +167,7 @@ public class RocketMQTraceHelper {
 
     @Nullable
     public void onReceiveStart(MessageExt messageExt, MessageQueue messageQueue) {
-        Transaction transaction = this.tracer.startRootTransaction(Consumer.class.getClassLoader());
+        Transaction transaction = this.tracer.startRootTransaction(MessageExt.class.getClassLoader());
         if (transaction != null) {
             String topic = messageQueue.getTopic();
             transaction.withType(Transaction.TYPE_REQUEST);
