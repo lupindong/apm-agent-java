@@ -170,15 +170,10 @@ public class RocketMQTraceHelper {
 
     @Nullable
     public void onReceiveStart(MessageExt messageExt, ConsumeConcurrentlyContext context) {
-        final AbstractSpan<?> activeSpan = this.tracer.getActive();
-        if (activeSpan == null) {
-            return;
-        }
-
-        MessageQueue messageQueue = context.getMessageQueue();
-        String topic = messageQueue.getTopic();
-        Transaction transaction = tracer.startRootTransaction(Consumer.class.getClassLoader());
+        Transaction transaction = this.tracer.startRootTransaction(Consumer.class.getClassLoader());
         if (transaction != null) {
+            MessageQueue messageQueue = context.getMessageQueue();
+            String topic = messageQueue.getTopic();
             transaction.withType(Transaction.TYPE_REQUEST);
             transaction.withName("Receive from " + topic);
             transaction.setFrameworkName("RocketMQ");
