@@ -49,7 +49,7 @@ public class MessageSendAdvice {
         @Advice.Argument(6) @Nullable SendCallback sendCallback) {
 
         try {
-            Span span = HELPER.onSendStart(addr, brokerName, message, requestHeader.getProducerGroup(), communicationMode);
+            Span span = HELPER.onSendStart(brokerName, message, requestHeader.getProducerGroup(), communicationMode);
             if (span == null) {
                 return sendCallback;
             }

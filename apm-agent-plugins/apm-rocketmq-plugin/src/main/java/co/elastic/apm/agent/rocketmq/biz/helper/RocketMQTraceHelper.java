@@ -16,33 +16,35 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+
 package co.elastic.apm.agent.rocketmq.biz.helper;
 
 import co.elastic.apm.agent.configuration.MessagingConfiguration;
 import co.elastic.apm.agent.impl.ElasticApmTracer;
 import co.elastic.apm.agent.impl.GlobalTracer;
-import co.elastic.apm.agent.impl.context.ServiceTarget;
 import co.elastic.apm.agent.impl.transaction.AbstractSpan;
+import co.elastic.apm.agent.impl.transaction.Outcome;
 import co.elastic.apm.agent.impl.transaction.Span;
+import co.elastic.apm.agent.impl.transaction.Transaction;
 import co.elastic.apm.agent.matcher.WildcardMatcher;
 import co.elastic.apm.agent.objectpool.Allocator;
 import co.elastic.apm.agent.objectpool.ObjectPool;
 import co.elastic.apm.agent.objectpool.impl.QueueBasedObjectPool;
 import co.elastic.apm.agent.sdk.logging.Logger;
 import co.elastic.apm.agent.sdk.logging.LoggerFactory;
+import com.aliyun.openservices.ons.api.Consumer;
+import com.aliyun.openservices.shade.com.alibaba.rocketmq.client.consumer.listener.ConsumeConcurrentlyContext;
 import com.aliyun.openservices.shade.com.alibaba.rocketmq.client.consumer.listener.ConsumeConcurrentlyStatus;
 import com.aliyun.openservices.shade.com.alibaba.rocketmq.client.impl.CommunicationMode;
 import com.aliyun.openservices.shade.com.alibaba.rocketmq.client.producer.SendCallback;
 import com.aliyun.openservices.shade.com.alibaba.rocketmq.client.producer.SendResult;
+import com.aliyun.openservices.shade.com.alibaba.rocketmq.common.MQVersion;
 import com.aliyun.openservices.shade.com.alibaba.rocketmq.common.message.Message;
 import com.aliyun.openservices.shade.com.alibaba.rocketmq.common.message.MessageExt;
-import org.apache.commons.lang3.StringUtils;
+import com.aliyun.openservices.shade.com.alibaba.rocketmq.common.message.MessageQueue;
 import org.jctools.queues.atomic.AtomicQueueFactory;
 
 import javax.annotation.Nullable;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 import static org.jctools.queues.spec.ConcurrentQueueSpec.createBoundedMpmc;
@@ -55,8 +57,6 @@ public class RocketMQTraceHelper {
     private final ElasticApmTracer tracer;
     private final MessagingConfiguration messagingConfiguration;
 
-    private final List<String> ignoreKey = new ArrayList<>();
-
     public static RocketMQTraceHelper get() {
         return INSTANCE;
     }
@@ -65,17 +65,11 @@ public class RocketMQTraceHelper {
         this.tracer = tracer;
         messagingConfiguration = tracer.getConfig(MessagingConfiguration.class);
         this.sendCallbackWrapperObjectPool = QueueBasedObjectPool.ofRecyclable(
-            AtomicQueueFactory.<SendCallbackWrapper>newQueue(
+            AtomicQueueFactory.newQueue(
                 createBoundedMpmc(256)),
             false,
             new SendCallbackWrapperAllocator()
         );
-
-        ignoreKey.add("ID");
-        ignoreKey.add("CONTENTTYPE");
-        ignoreKey.add("UNIQ_KEY");
-        ignoreKey.add("INSTANCE_ID");
-        ignoreKey.add("WAIT");
     }
 
 
@@ -106,22 +100,15 @@ public class RocketMQTraceHelper {
     /**
      * 发送开始
      *
-     * @param addr
      * @param brokerName
      * @param message
-     * @param producerGroup
-     * @param communicationMode
+     * @param group
+     * @param mode
      * @return
      */
     @Nullable
-    public Span onSendStart(String addr, String brokerName, Message message, String producerGroup,
-                            CommunicationMode communicationMode) {
-        Map<String, String> properties = message.getProperties() != null
-            ? message.getProperties() : new HashMap<String, String>(1);
-        String instanceId = properties.getOrDefault("INSTANCE_ID", "UNKNOWN");
-        String sourceTopic = message.getTopic();
-        String topic = sourceTopic.startsWith(instanceId) ? sourceTopic.substring(instanceId.length() + 1) : sourceTopic;
-
+    public Span onSendStart(String brokerName, Message message, String group, CommunicationMode mode) {
+        String topic = message.getTopic();
         if (ignoreTopic(topic)) {
             return null;
         }
@@ -134,39 +121,13 @@ public class RocketMQTraceHelper {
         span.withType("messaging")
             .withSubtype("RocketMQ")
             .withAction("send")
-            .withName(communicationMode.name() + " Send To ")
+            .withName(mode.name() + " Send To ")
             .appendToName(topic);
 
+        span.getContext().getServiceTarget().withName(brokerName).withNameOnlyDestinationResource();
         co.elastic.apm.agent.impl.context.Message apmMessage = span.getContext().getMessage().withQueue(topic);
-
-        producerGroup = producerGroup.startsWith(producerGroup) ? producerGroup.substring(instanceId.length() + 1) : producerGroup;
-        apmMessage.addHeader("producerGroup", producerGroup);
-
-        for (Map.Entry<String, String> entry : properties.entrySet()) {
-            String key = entry.getKey();
-            String value = entry.getValue();
-
-            if (!ignoreKey.contains(key.toUpperCase())) {
-                apmMessage.addHeader(key, value);
-            } else if ("UNIQ_KEY".equals(key)) {
-                apmMessage.addHeader("msgId", value);
-            }
-        }
-
-        String uniqKey = properties.get("UNIQ_KEY");
-        if (StringUtils.isNotBlank(uniqKey)) {
-            apmMessage.addHeader("msgId", uniqKey);
-        }
-
-        if (!"UNKNOWN".equals(StringUtils.isNotBlank(instanceId))) {
-            apmMessage.addHeader("instanceId", instanceId);
-        }
-
-        ServiceTarget serviceTarget = span.getContext().getServiceTarget().withType("RocketMQ").withName(brokerName);
-        if (StringUtils.isNotBlank(addr) && addr.contains(":")) {
-            String[] split = addr.split(":");
-            serviceTarget.withHostPortName(split[0], Integer.parseInt(split[1]));
-        }
+        setMsgHeader(message.getProperties(), apmMessage);
+        apmMessage.addHeader("group", group);
 
         span.activate();
         return span;
@@ -188,61 +149,68 @@ public class RocketMQTraceHelper {
         if (span == null) {
             return;
         }
-        try {
-            if (sendResult != null) {
-                co.elastic.apm.agent.impl.context.Message apmMessage = span.getContext().getMessage();
-                apmMessage.addHeader("sendStatus", sendResult.getSendStatus().name());
-                apmMessage.addHeader("msgId", sendResult.getMsgId());
-                apmMessage.addHeader("transactionId", sendResult.getTransactionId());
-                apmMessage.addHeader("offsetMsgId", sendResult.getOffsetMsgId());
-                apmMessage.addHeader("queueId", String.valueOf(sendResult.getMessageQueue().getQueueId()));
-                apmMessage.addHeader("queueOffset", String.valueOf(sendResult.getQueueOffset()));
-            }
-        } finally {
-            span.captureException(throwable);
-            if (sendCallback != null) {
-                // Not ending here, ending in the callback
-                span.deactivate();
-            } else {
-                span.deactivate().end();
-            }
+        span.captureException(throwable);
+        if (sendResult != null) {
+            co.elastic.apm.agent.impl.context.Message apmMessage = span.getContext().getMessage();
+            apmMessage.addHeader("sendStatus", sendResult.getSendStatus().name());
+            apmMessage.addHeader("transactionId", sendResult.getTransactionId());
+            apmMessage.addHeader("offsetMsgId", sendResult.getOffsetMsgId());
+            apmMessage.addHeader("queueId", String.valueOf(sendResult.getMessageQueue().getQueueId()));
+            apmMessage.addHeader("queueOffset", String.valueOf(sendResult.getQueueOffset()));
         }
+        if (sendCallback != null) {
+            // Not ending here, ending in the callback
+            span.deactivate();
+        } else {
+            span.deactivate().end();
+        }
+
     }
 
 
     @Nullable
-    public void onReceiveStart(List<MessageExt> msgs) {
-        final AbstractSpan<?> activeSpan = tracer.getActive();
+    public void onReceiveStart(MessageExt messageExt, ConsumeConcurrentlyContext context) {
+        final AbstractSpan<?> activeSpan = this.tracer.getActive();
         if (activeSpan == null) {
-            LOGGER.warn("[onReceiveStart]activeSpan == null");
             return;
         }
 
-        Span span = activeSpan.createExitSpan();
-        if (span == null) {
-            LOGGER.warn("[onReceiveStart]createExitSpan == null");
-            return;
+        MessageQueue messageQueue = context.getMessageQueue();
+        String topic = messageQueue.getTopic();
+        Transaction transaction = tracer.startRootTransaction(Consumer.class.getClassLoader());
+        if (transaction != null) {
+            transaction.withType(Transaction.TYPE_REQUEST);
+            transaction.withName("Receive from " + topic);
+            transaction.setFrameworkName("RocketMQ");
+            transaction.setFrameworkVersion(MQVersion.getVersionDesc(MQVersion.CURRENT_VERSION));
+            transaction.getContext().getServiceOrigin().withName(messageQueue.getBrokerName());
+
+            co.elastic.apm.agent.impl.context.Message apmMessage =
+                transaction.getContext().getMessage().withQueue(topic);
+            setMsgHeader(messageExt.getProperties(), apmMessage);
+            apmMessage.addHeader("queueId", String.valueOf(messageQueue.getQueueId()));
+
+            transaction.activate();
         }
-
-        String topic = msgs.get(0).getTopic();
-
-        span.withType("messaging")
-            .withSubtype("RocketMQ")
-            .withAction("receive")
-            .withName("Receive from " + topic, AbstractSpan.PRIO_HIGH_LEVEL_FRAMEWORK);
-
-        span.getContext().getServiceTarget().withType("RocketMQ");
-
-        span.activate();
     }
 
-    public void onReceiveEnd(List<MessageExt> msgs, ConsumeConcurrentlyStatus status, Throwable throwable) {
-        Span span = tracer.getActiveSpan();
-        if (span != null && "RocketMQ".equals(span.getSubtype()) && "receive".equals(span.getAction())) {
-            if (ConsumeConcurrentlyStatus.RECONSUME_LATER.equals(status)) {
-                span.captureException(throwable);
+    private static void setMsgHeader(Map<String, String> properties,
+                                     co.elastic.apm.agent.impl.context.Message apmMessage) {
+        if (properties != null && !properties.isEmpty()) {
+            for (Map.Entry<String, String> entry : properties.entrySet()) {
+                apmMessage.addHeader(entry.getKey(), entry.getValue());
             }
-            span.deactivate().end();
         }
+    }
+
+    public void onReceiveEnd(ConsumeConcurrentlyStatus status, Throwable throwable) {
+        final AbstractSpan<?> activeSpan = this.tracer.getActive();
+        if (activeSpan != null) {
+            activeSpan.withOutcome(
+                ConsumeConcurrentlyStatus.CONSUME_SUCCESS.equals(status) ? Outcome.SUCCESS : Outcome.FAILURE);
+            activeSpan.captureException(throwable);
+            activeSpan.deactivate().end();
+        }
+
     }
 }

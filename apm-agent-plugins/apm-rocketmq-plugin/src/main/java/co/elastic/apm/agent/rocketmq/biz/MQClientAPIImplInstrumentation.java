@@ -33,7 +33,7 @@ public class MQClientAPIImplInstrumentation extends AbstractRocketMQInstrumentat
 
     @Override
     public ElementMatcher.Junction<ClassLoader> getClassLoaderMatcher() {
-        return not(isBootstrapClassLoader()).and(classLoaderCanLoadClass("com.aliyun.openservices.ons.api.Message"));
+        return not(isBootstrapClassLoader()).and(classLoaderCanLoadClass("com.aliyun.openservices.ons.api.Producer"));
     }
 
     @Override

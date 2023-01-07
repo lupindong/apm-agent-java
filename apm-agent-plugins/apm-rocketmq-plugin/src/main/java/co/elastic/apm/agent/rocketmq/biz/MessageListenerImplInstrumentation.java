@@ -16,6 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+
 package co.elastic.apm.agent.rocketmq.biz;
 
 import co.elastic.apm.agent.rocketmq.AbstractRocketMQInstrumentation;
@@ -24,27 +25,32 @@ import net.bytebuddy.description.type.TypeDescription;
 import net.bytebuddy.matcher.ElementMatcher;
 
 import static co.elastic.apm.agent.bci.bytebuddy.CustomElementMatchers.classLoaderCanLoadClass;
-import static net.bytebuddy.matcher.ElementMatchers.*;
+import static net.bytebuddy.matcher.ElementMatchers.isBootstrapClassLoader;
+import static net.bytebuddy.matcher.ElementMatchers.isPublic;
+import static net.bytebuddy.matcher.ElementMatchers.named;
+import static net.bytebuddy.matcher.ElementMatchers.not;
+import static net.bytebuddy.matcher.ElementMatchers.takesArguments;
 
-public class MessageListenerConcurrentlyInstrumentation extends AbstractRocketMQInstrumentation {
+public class MessageListenerImplInstrumentation extends AbstractRocketMQInstrumentation {
 
     @Override
     public ElementMatcher.Junction<ClassLoader> getClassLoaderMatcher() {
-        return not(isBootstrapClassLoader()).and(classLoaderCanLoadClass("com.aliyun.openservices.ons.api.Message"));
+        return not(isBootstrapClassLoader()).and(classLoaderCanLoadClass("com.aliyun.openservices.ons.api.Consumer"));
     }
 
     @Override
     public ElementMatcher<? super TypeDescription> getTypeMatcher() {
-        return named("com.aliyun.openservices.ons.api.impl.rocketmq.OrderConsumerImpl.MessageListenerOrderlyImpl");
+        return named("com.aliyun.openservices.ons.api.impl.rocketmq.ConsumerImpl$MessageListenerImpl");
     }
 
     /**
-     * {@link com.aliyun.openservices.shade.com.alibaba.rocketmq.client.impl.MQClientAPIImpl#sendMessage}
+     * {@link com.aliyun.openservices.ons.api.impl.rocketmq.ConsumerImpl$MessageListenerImpl#consumeMessage}
      */
     @Override
     public ElementMatcher<? super MethodDescription> getMethodMatcher() {
         return isPublic().and(
-            named("consumeMessage").and(takesArguments(2)));
+            named("consumeMessage").and(takesArguments(2))
+        );
     }
 
     @Override

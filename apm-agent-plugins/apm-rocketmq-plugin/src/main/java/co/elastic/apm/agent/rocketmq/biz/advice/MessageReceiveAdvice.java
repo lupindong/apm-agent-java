@@ -16,11 +16,13 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+
 package co.elastic.apm.agent.rocketmq.biz.advice;
 
 import co.elastic.apm.agent.rocketmq.biz.helper.RocketMQTraceHelper;
 import co.elastic.apm.agent.sdk.logging.Logger;
 import co.elastic.apm.agent.sdk.logging.LoggerFactory;
+import com.aliyun.openservices.shade.com.alibaba.rocketmq.client.consumer.listener.ConsumeConcurrentlyContext;
 import com.aliyun.openservices.shade.com.alibaba.rocketmq.client.consumer.listener.ConsumeConcurrentlyStatus;
 import com.aliyun.openservices.shade.com.alibaba.rocketmq.common.message.MessageExt;
 import net.bytebuddy.asm.Advice;
@@ -36,10 +38,12 @@ public class MessageReceiveAdvice {
 
     @Nullable
     @Advice.OnMethodEnter(suppress = Throwable.class, inline = false)
-    public static void beforeMethod(@Advice.Argument(0) List<MessageExt> msgs) {
-        LOGGER.info("[MessageReceiveAdvice.beforeMethod]msgs.size = {}, msgs ==> {}", msgs.size(), msgs);
+    public static void beforeMethod(@Advice.Argument(0) List<MessageExt> msgs,
+                                    @Advice.Argument(1) ConsumeConcurrentlyContext context) {
         try {
-            HELPER.onReceiveStart(msgs);
+            if (msgs != null && !msgs.isEmpty()) {
+                HELPER.onReceiveStart(msgs.get(0), context);
+            }
         } catch (Exception e) {
             // 忽略异常不处理，避免影响业务
             LOGGER.error(e.getMessage(), e);
@@ -49,13 +53,11 @@ public class MessageReceiveAdvice {
     @Nullable
     @Advice.OnMethodExit(suppress = Throwable.class, onThrowable = Throwable.class, inline = false)
     public static void afterMethod(
-        @Advice.Argument(0) List<MessageExt> msgs,
         @Advice.Return @Nullable ConsumeConcurrentlyStatus status,
         @Advice.Thrown final Throwable throwable) {
 
-        LOGGER.info("[MessageReceiveAdvice.afterMethod]msgs.size = {}, msgs ==> {}", msgs.size(), msgs);
         try {
-            HELPER.onReceiveEnd(msgs, status, throwable);
+            HELPER.onReceiveEnd(status, throwable);
         } catch (Exception e) {
             // 忽略异常不处理，避免影响业务
             LOGGER.error(e.getMessage(), e);
