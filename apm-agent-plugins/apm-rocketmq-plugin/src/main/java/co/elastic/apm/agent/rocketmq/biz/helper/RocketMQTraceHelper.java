@@ -33,8 +33,6 @@ import co.elastic.apm.agent.objectpool.impl.QueueBasedObjectPool;
 import co.elastic.apm.agent.sdk.logging.Logger;
 import co.elastic.apm.agent.sdk.logging.LoggerFactory;
 import com.aliyun.openservices.ons.api.Consumer;
-import com.aliyun.openservices.shade.com.alibaba.rocketmq.client.consumer.listener.ConsumeConcurrentlyContext;
-import com.aliyun.openservices.shade.com.alibaba.rocketmq.client.consumer.listener.ConsumeConcurrentlyStatus;
 import com.aliyun.openservices.shade.com.alibaba.rocketmq.client.impl.CommunicationMode;
 import com.aliyun.openservices.shade.com.alibaba.rocketmq.client.producer.SendCallback;
 import com.aliyun.openservices.shade.com.alibaba.rocketmq.client.producer.SendResult;
@@ -169,10 +167,9 @@ public class RocketMQTraceHelper {
 
 
     @Nullable
-    public void onReceiveStart(MessageExt messageExt, ConsumeConcurrentlyContext context) {
+    public void onReceiveStart(MessageExt messageExt, MessageQueue messageQueue) {
         Transaction transaction = this.tracer.startRootTransaction(Consumer.class.getClassLoader());
         if (transaction != null) {
-            MessageQueue messageQueue = context.getMessageQueue();
             String topic = messageQueue.getTopic();
             transaction.withType(Transaction.TYPE_REQUEST);
             transaction.withName("Receive from " + topic);
@@ -198,11 +195,10 @@ public class RocketMQTraceHelper {
         }
     }
 
-    public void onReceiveEnd(ConsumeConcurrentlyStatus status, Throwable throwable) {
+    public void onReceiveEnd(Outcome outcome, Throwable throwable) {
         final AbstractSpan<?> activeSpan = this.tracer.getActive();
         if (activeSpan != null) {
-            activeSpan.withOutcome(
-                ConsumeConcurrentlyStatus.CONSUME_SUCCESS.equals(status) ? Outcome.SUCCESS : Outcome.FAILURE);
+            activeSpan.withOutcome(outcome);
             activeSpan.captureException(throwable);
             activeSpan.deactivate().end();
         }

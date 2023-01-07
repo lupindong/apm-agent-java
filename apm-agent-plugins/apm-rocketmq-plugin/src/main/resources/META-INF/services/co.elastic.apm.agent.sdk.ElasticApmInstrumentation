@@ -1,3 +1,4 @@
 co.elastic.apm.agent.rocketmq.biz.MQClientAPIImplInstrumentation
 co.elastic.apm.agent.rocketmq.oss.MQClientAPIImplInstrumentation
 co.elastic.apm.agent.rocketmq.biz.MessageListenerImplInstrumentation
+co.elastic.apm.agent.rocketmq.biz.MessageListenerOrderlyImplInstrumentation

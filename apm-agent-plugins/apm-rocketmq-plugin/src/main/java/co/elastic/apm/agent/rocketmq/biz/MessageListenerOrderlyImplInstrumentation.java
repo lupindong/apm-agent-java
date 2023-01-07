@@ -31,20 +31,21 @@ import static net.bytebuddy.matcher.ElementMatchers.named;
 import static net.bytebuddy.matcher.ElementMatchers.not;
 import static net.bytebuddy.matcher.ElementMatchers.takesArguments;
 
-public class MessageListenerImplInstrumentation extends AbstractRocketMQInstrumentation {
+public class MessageListenerOrderlyImplInstrumentation extends AbstractRocketMQInstrumentation {
 
     @Override
     public ElementMatcher.Junction<ClassLoader> getClassLoaderMatcher() {
-        return not(isBootstrapClassLoader()).and(classLoaderCanLoadClass("com.aliyun.openservices.ons.api.Consumer"));
+        return not(isBootstrapClassLoader()).and(
+            classLoaderCanLoadClass("com.aliyun.openservices.ons.api.order.OrderConsumer"));
     }
 
     @Override
     public ElementMatcher<? super TypeDescription> getTypeMatcher() {
-        return named("com.aliyun.openservices.ons.api.impl.rocketmq.ConsumerImpl$MessageListenerImpl");
+        return named("com.aliyun.openservices.ons.api.impl.rocketmq.OrderConsumerImpl$MessageListenerOrderlyImpl");
     }
 
     /**
-     * {@link com.aliyun.openservices.ons.api.impl.rocketmq.ConsumerImpl$MessageListenerImpl#consumeMessage}
+     * {@link com.aliyun.openservices.ons.api.impl.rocketmq.OrderConsumerImpl$MessageListenerOrderlyImpl#consumeMessage}
      */
     @Override
     public ElementMatcher<? super MethodDescription> getMethodMatcher() {
@@ -55,7 +56,7 @@ public class MessageListenerImplInstrumentation extends AbstractRocketMQInstrume
 
     @Override
     public String getAdviceClassName() {
-        return "co.elastic.apm.agent.rocketmq.biz.advice.MessageConcurrentlyReceiveAdvice";
+        return "co.elastic.apm.agent.rocketmq.biz.advice.MessageOrderlyReceiveAdvice";
     }
 
 }
