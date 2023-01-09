@@ -16,6 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+
 package co.elastic.apm.agent.rocketmq.oss.advice;
 
 import co.elastic.apm.agent.impl.transaction.Span;
@@ -41,7 +42,6 @@ public class MessageSendAdvice {
     @Advice.AssignReturned.ToArguments(@Advice.AssignReturned.ToArguments.ToArgument(6))
     @Advice.OnMethodEnter(suppress = Throwable.class, inline = false)
     public static SendCallback beforeMethod(
-        @Advice.Argument(0) String addr,
         @Advice.Argument(1) String brokerName,
         @Advice.Argument(2) Message message,
         @Advice.Argument(3) SendMessageRequestHeader requestHeader,
@@ -49,7 +49,7 @@ public class MessageSendAdvice {
         @Advice.Argument(6) @Nullable SendCallback sendCallback) {
 
         try {
-            Span span = HELPER.onSendStart(addr, brokerName, message, requestHeader.getProducerGroup(), communicationMode);
+            Span span = HELPER.onSendStart(brokerName, message, requestHeader.getProducerGroup(), communicationMode);
             if (span == null) {
                 return sendCallback;
             }
