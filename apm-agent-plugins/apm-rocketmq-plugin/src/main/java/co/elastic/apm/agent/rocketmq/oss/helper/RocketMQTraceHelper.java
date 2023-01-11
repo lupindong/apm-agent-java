@@ -159,7 +159,10 @@ public class RocketMQTraceHelper {
             // Not ending here, ending in the callback
             span.deactivate();
         } else {
-            span.deactivate().end();
+            span.deactivate();
+            if (!span.isFinished()) {
+                span.end();
+            }
         }
 
     }
@@ -199,7 +202,10 @@ public class RocketMQTraceHelper {
         if (activeSpan != null) {
             activeSpan.withOutcome(outcome);
             activeSpan.captureException(throwable);
-            activeSpan.deactivate().end();
+            activeSpan.deactivate();
+            if (!activeSpan.isFinished()) {
+                activeSpan.end();
+            }
         }
 
     }
